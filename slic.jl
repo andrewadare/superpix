@@ -86,11 +86,11 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
     for i = 1:nr
         for j = 1:nc
 
-            # Only enter the loop body if we are starting a new segment.
+            # Only enter the loop body if we are starting a new segment
             newlabels[i,j] == 0 || continue
             newlabels[i,j] = label
 
-            # Find an adjacent newlabel for later merging of small segments.
+            # Find an adjacent newlabel for later merging of small segments
             for k = 1:4
                 ni, nj = i+i4[k], j+j4[k]
                 if (1 <= ni <= nr) && (1 <= nj <= nc)
@@ -107,13 +107,14 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
                 counter += 1
                 for k = 1:4
                     ni, nj = iseg[counter]+i4[k], jseg[counter]+j4[k]
-                    if 1 <= ni <= nr && 1 <= nj <= nc
-                        if labels[i,j] == labels[ni,nj] && newlabels[ni,nj] == 0
-                            segsize += 1
-                            iseg[segsize], jseg[segsize] = ni, nj
-                            newlabels[ni, nj] = label
-                        end
-                    end
+
+                    (1 <= ni <= nr && 1 <= nj <= nc) || continue
+                    labels[i,j] == labels[ni,nj] || continue
+                    newlabels[ni,nj] == 0 || continue
+
+                    segsize += 1
+                    iseg[segsize], jseg[segsize] = ni, nj
+                    newlabels[ni, nj] = label
                 end
             end
 
@@ -154,9 +155,9 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     s = round(Int, sqrt(nr*nc/k)) - 2
     area = s*s
 
-    max_npix = (2s+2)^2
-    cluster_rows = Array(Int, max_npix, nclusters)
-    cluster_cols = Array(Int, max_npix, nclusters)
+    # idx = Array(Int, 10*area, nclusters)
+    cluster_rows = Array(Int, 10*area, nclusters)
+    cluster_cols = Array(Int, 10*area, nclusters)
     npix = zeros(Int, nclusters)
     m2 = m*m
 
@@ -173,6 +174,7 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
 
         # Distances from pixels to cluster centers, initialized to ∞
         d = convert(Float64, Inf)*ones(Float64, nr, nc)
+        npix *= 0
 
         ########### TODO: put this in a update_distances!() function ###########
         tic()
@@ -208,6 +210,7 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
 
                         # Store pixel position
                         npix[n] += 1
+                        # idx[npix[n], n] = sub2ind(size(labels), r, c)
                         cluster_rows[npix[n], n] = r
                         cluster_cols[npix[n], n] = c
                     end
@@ -308,13 +311,13 @@ function main()
     # Convert to CIELAB color space for improved gradients and color distances
     imlab = convert(Image{Color.LAB}, float32(img))
 
-    # Approximage number of requested superpixels.
-    k = 100
+    # Approximate number of requested superpixels.
+    k = 1000
 
     # Cluster compactness parameter. 
     # Large m favors roundness and uniformity (hex cells as m -> ∞)
     # Small m favors color edge adherence.
-    m = 100
+    m = 10
 
     # Note: k and m are coupled, since the clustering distance is a quadrature
     # sum of spatial_distance/s and color_distance/m where s = sqrt(h*w/k).
