@@ -359,22 +359,7 @@ function main()
     borders = cluster_borders(labels)
     centroids = cluster_centroids(labels, nlabels)
 
-    # # One method to superimpose multiple layers
-    # segs = colorim(zeros(Float32,3,nr,nc))
-    # for i = 1:nr
-    #     for j = 1:nc
-    #         segs[i,j] = borders[i,j] > 0 ? Color.RGB(1,0,0) : Color.RGB(0,0,0)
-    #     end
-    # end
-    # for c in 1:nlabels
-    #     row, col = centroids[c, 1], centroids[c, 2]
-    #     if (1 <= row <= nr) && (1 <= col <= nc)
-    #         segs[row, col] = Color.RGB(0,1,0)
-    #         # centroid_img[row, col] = 1
-    #     end
-    # end
-
-    # A second method
+    # Display cluster boundaries and centroids
     centroid_img = zeros(labels)
     for c in 1:nlabels
         row, col = centroids[c, 1], centroids[c, 2]
@@ -383,12 +368,31 @@ function main()
         end
     end
     segs = Overlay((borders', centroid_img'), 
-                   (Color.RGB(1,0,0), Color.RGB(0,1,0)),
+                   (Color.RGB(0.2,0.2,0.2), Color.RGB(1,1,0)),
                    ((0,1), (0,1))
                    )
                    # (Images.Clamp{Float64}(), Images.Clamp{Float64}()))
 
-    imwrite(segs, "img.jpg")
+
+    # Superimpose cluster boundaries on image
+    for i = 1:nr
+        for j = 1:nc
+            if borders[i,j] > 0
+            img[i,j] = Color.RGB(1,1,1)
+            end
+        end
+    end
+    # for c in 1:nlabels
+    #     row, col = centroids[c, 1], centroids[c, 2]
+    #     if (1 <= row <= nr) && (1 <= col <= nc)
+    #         segs[row, col] = Color.RGB(0,1,0)
+    #         # centroid_img[row, col] = 1
+    #     end
+    # end
+
+
+    imwrite(segs, "segs.jpg")
+    imwrite(img, "img.jpg")
     imwrite(grayim(borders), "borders.jpg")
 end
 
