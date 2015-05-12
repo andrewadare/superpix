@@ -69,32 +69,6 @@ function adjusted_grid(grid::AbstractArray, grad_mag::AbstractArray)
     newgrid
 end
 
-function find_connected_labels(labels::AbstractArray, 
-                               linear_label_index::Int,
-                               segment::AbstractArray)
-    npix = 1
-    nr, nc = size(labels)
-    i,j = ind2sub(size(labels), linear_label_index)
-
-    # Relative neighbor indices
-    i4 = [-1,  0,  1,  0]
-    j4 = [ 0, -1,  0,  1]
-
-    # Add this pixel to the list of connected pixels.
-    segment[linear_label_index] = 1
-
-    for k = 1:4
-        ni, nj = i+i4[k], j+j4[k]
-        if (1 <= ni <= nr) && (1 <= nj <= nc) && labels[ni,nj] == labels[i,j]
-            neighbor_idx = sub2ind(size(labels), ni, nj)
-            if segment[neighbor_idx] == 0
-                npix += find_connected_labels(labels, neighbor_idx, segment)
-            end
-        end
-    end
-    npix
-end
-
 function reconnect(labels::AbstractArray, min_cluster_size::Integer)
     newlabels = zeros(labels)
     nr, nc = size(labels)
@@ -105,10 +79,6 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
 
     iseg = zeros(Int, nr*nc)
     jseg = zeros(Int, nr*nc)
-
-    # # Linear indices of connected labels in one segment
-    # segment = zeros(Int, nr*nc)
-    # segsize = 0
 
     label = 1
     adjlabel = 1
@@ -130,26 +100,19 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
                 end
             end
 
-            # segsize = 0
-            # idx = newlabels[sub2ind(size(newlabels), i, j)]
-            # println("idx: ", idx)
-            # segsize = find_connected_labels(labels, idx, segment)
-            # println("segsize: ", segsize)
-            # for l=1:segsize
-            #     println(segment[l])
-            # #     newlabels[segment[l]] = label
-            # end
-
+            # Do a depth-first search to find connected pixel labels
             iseg[1], jseg[1] = i, j
-            c, count = 0, 1
-            while c < count
-                c += 1
+            counter, segsize = 0, 1
+            while counter < segsize
+                counter += 1
                 for k = 1:4
-                    ni, nj = iseg[c]+i4[k], jseg[c]+j4[k]
-                    if (1 <= ni <= nr && 1 <= nj <= nc) && labels[i,j] == labels[ni,nj] && newlabels[ni,nj] == 0
-                        count += 1
-                        iseg[count], jseg[count] = ni, nj
-                        newlabels[ni, nj] = label
+                    ni, nj = iseg[counter]+i4[k], jseg[counter]+j4[k]
+                    if 1 <= ni <= nr && 1 <= nj <= nc
+                        if labels[i,j] == labels[ni,nj] && newlabels[ni,nj] == 0
+                            segsize += 1
+                            iseg[segsize], jseg[segsize] = ni, nj
+                            newlabels[ni, nj] = label
+                        end
                     end
                     # println("$ni, $nj: label $label newlabel $(newlabels[ni, nj])")
                 end
@@ -279,11 +242,7 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
         toc()
         ########### TODO: put this in a update_centroids!() function ###########
     end
-    # newlabels = fixup_clusters(labels, cluster_rows, cluster_cols, npix, centers, s)
     
-    # borders = cluster_borders(newlabels)
-    # imwrite(grayim(borders), "outliers.jpg")
-
 
     # # Visualize original and adjusted grid positions
     # for n = 1:size(grid,1)
@@ -299,51 +258,6 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
 
     labels
 end
-
-# ###############################################################################
-# ###############################################################################
-# function fixup_clusters(labels::AbstractArray,
-#                         cluster_rows::AbstractArray,
-#                         cluster_cols::AbstractArray,
-#                         sizes::AbstractArray,
-#                         centers::AbstractArray,
-#                         min_cluster_size::Integer)
-#     nr, nc = size(labels)
-#     # newlabels = zeros(Int, nr, nc)
-#     newlabels = copy(labels)
-
-#     # Relative neighbor indices
-#     i4 = [-1,  0,  1,  0]
-#     j4 = [ 0, -1,  0,  1]
-
-#     # newlabels[unlabeled_pixels] = 0
-
-#     # Assign any unassigned pixels to adjacent labels
-#     unlabeled_pixels = find(labels .== 0)
-#     for p in unlabeled_pixels
-#         i,j = ind2sub(size(labels), p)
-#         for k = 1:4
-#             ni, nj = i+i4[k], j+j4[k]
-#             if (1 <= ni <= nr) && (1 <= nj <= nc)
-#                 if labels[ni, nj] > 0
-#                     newlabels[i,j] = labels[ni, nj]
-#                     println("assigning $i,$j to $(labels[ni, nj])")
-#                 end
-#             end
-#         end
-#     end
-#     unlabeled_pixels = find(labels .== 0)
-#     println("$(length(unlabeled_pixels)) unlabeled pixels: $(unlabeled_pixels)")
-
-
-#     # for n = 1:length(sizes)
-#     #     rows = cluster_rows[1:sizes[n], n]
-#     #     cols = cluster_cols[1:sizes[n], n]
-#     #     # newlabels[rows, cols] = n
-#     # end
-
-#     newlabels
-# end
 
 # Return row index in the centers array for the point nearest to the nth point.
 function nearest_point_index(centers::AbstractArray, n::Integer)
@@ -411,6 +325,8 @@ function main()
     @time labels = slic(imlab, k, m)
 
     min_cluster_size = round(Int, sqrt(length(img)/k))
+
+    # Eventually this function will go inside slic().
     newlabels, nlabels = reconnect(labels, min_cluster_size)
     
     # show(labels[1:50, 1:50])
