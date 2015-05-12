@@ -1,4 +1,5 @@
 using Images
+import Base: var # To add methods for ColorValue types
 
 # Compute a hexagonal grid over a 2D region of size h x w.
 # An n x 2 array of row,col positions is returned, where n <= k is the number
@@ -66,67 +67,6 @@ function adjusted_grid(grid::AbstractArray, grad_mag::AbstractArray)
     end
 
     newgrid
-end
-
-function reconnect(labels::AbstractArray, min_cluster_size::Integer)
-    newlabels = zeros(labels)
-    nr, nc = size(labels)
-
-    # Relative neighbor indices
-    i4 = [-1,  0,  1,  0]
-    j4 = [ 0, -1,  0,  1]
-
-    iseg = zeros(Int, nr*nc)
-    jseg = zeros(Int, nr*nc)
-
-    label = 1
-    adjlabel = 1
-
-    for i = 1:nr
-        for j = 1:nc
-
-            # Only enter the loop body if we are starting a new segment
-            newlabels[i,j] == 0 || continue
-            newlabels[i,j] = label
-
-            # Find an adjacent newlabel for later merging of small segments
-            for k = 1:4
-                ni, nj = i+i4[k], j+j4[k]
-                (1 <= ni <= nr && 1 <= nj <= nc) || continue
-                newlabels[ni, nj] > 0 || continue
-                adjlabel = newlabels[ni, nj]
-            end
-
-            # Do a depth-first search to find connected pixel labels
-            iseg[1], jseg[1] = i, j
-            counter, segsize = 0, 1
-            while counter < segsize
-                counter += 1
-                for k = 1:4
-                    ni, nj = iseg[counter]+i4[k], jseg[counter]+j4[k]
-
-                    (1 <= ni <= nr && 1 <= nj <= nc) || continue
-                    labels[i,j] == labels[ni,nj] || continue
-                    newlabels[ni,nj] == 0 || continue
-
-                    segsize += 1
-                    iseg[segsize], jseg[segsize] = ni, nj
-                    newlabels[ni, nj] = label
-                end
-            end
-
-            # Reassign small clusters to adjlabel
-            if segsize < min_cluster_size
-                for c = 1:segsize
-                    newlabels[iseg[c],jseg[c]] = adjlabel
-                end
-            else
-                label += 1
-            end
-        end
-    end
-
-    newlabels, label
 end
 
 function update_distances!(img::AbstractArray, 
@@ -226,6 +166,67 @@ function update_centroids!(labels::AbstractArray, centers::AbstractArray)
     end
 end
 
+function reconnect(labels::AbstractArray, min_cluster_size::Integer)
+    newlabels = zeros(labels)
+    nr, nc = size(labels)
+
+    # Relative neighbor indices
+    i4 = [-1,  0,  1,  0]
+    j4 = [ 0, -1,  0,  1]
+
+    iseg = zeros(Int, nr*nc)
+    jseg = zeros(Int, nr*nc)
+
+    label = 1
+    adjlabel = 1
+
+    for i = 1:nr
+        for j = 1:nc
+
+            # Only enter the loop body if we are starting a new segment
+            newlabels[i,j] == 0 || continue
+            newlabels[i,j] = label
+
+            # Find an adjacent newlabel for later merging of small segments
+            for k = 1:4
+                ni, nj = i+i4[k], j+j4[k]
+                (1 <= ni <= nr && 1 <= nj <= nc) || continue
+                newlabels[ni, nj] > 0 || continue
+                adjlabel = newlabels[ni, nj]
+            end
+
+            # Do a depth-first search to find connected pixel labels
+            iseg[1], jseg[1] = i, j
+            counter, segsize = 0, 1
+            while counter < segsize
+                counter += 1
+                for k = 1:4
+                    ni, nj = iseg[counter]+i4[k], jseg[counter]+j4[k]
+
+                    (1 <= ni <= nr && 1 <= nj <= nc) || continue
+                    labels[i,j] == labels[ni,nj] || continue
+                    newlabels[ni,nj] == 0 || continue
+
+                    segsize += 1
+                    iseg[segsize], jseg[segsize] = ni, nj
+                    newlabels[ni, nj] = label
+                end
+            end
+
+            # Reassign small clusters to adjlabel
+            if segsize < min_cluster_size
+                for c = 1:segsize
+                    newlabels[iseg[c],jseg[c]] = adjlabel
+                end
+            else
+                label += 1
+            end
+        end
+    end
+
+    newlabels, label
+end
+
 # TODO(OPT) split image and use @parallel
 function slic(img::AbstractArray, k::Integer, m::Integer)
 
@@ -322,19 +323,42 @@ function cluster_centroids(labels::AbstractArray, nclusters::Integer)
     ctrs
 end
 
-# function regional_adjacency_graph()
-#     labels = unique(lpx)
-#     nodes = zeros(length(labels), 2)
-#     ragmat = copy(boundaries)
-#     for label in labels
-#         indices = find(lpx .== label)
-#         rows, cols = ind2sub(size(lpx), indices)
-#         r,c = iround(mean(rows)), iround(mean(cols))
-#         nodes[label+1,1:2] = [r c]
-#         ragmat[r,c] = 1
-#     end
-#     imwrite(ragmat, "graph.jpg")
-# end
+function myvar(v::Vector{Color.RGB}, mu::Color.RGB)
+    mapreduce(x->x^2, +, [v.r-mu.r, v.g-mu.g, v.b-mu.b])/max(1, length(v)-1)
+end
+
+function color_moments(img, labels, nlabels)
+    superpx_mean_img = zeros(img)
+    superpx_std_img = zeros(img)
+
+    var = zeros(Float64, 3)
+    for label in 1:nlabels
+        indices = find(labels .== label)
+        segment = img[indices]
+        mu = mean(segment)
+        # sd = std(segment) # No implementation for ColorValues
+
+        isnan(mu) && continue
+
+        # Compute the variance in color over this superpixel.
+        # The color variance is a 3-component vector of floats for R,G,B.
+        cdiff = Array(Float64, length(segment), 3)
+        for p = 1:length(segment)
+            c = img[p]
+            cdiff[p, :] = Float64[c.r - mu.r c.g - mu.g c.b - mu.b]
+        end
+        for color = 1:3
+            var[color] = mapreduce(x->x^2, +, cdiff[:, color])/max(1, length(segment)-1)
+        end
+
+        stdev = sqrt(var)
+        superpx_mean_img[indices] = mu
+        superpx_std_img[indices] = Color.RGB(stdev[1], stdev[2], stdev[3])
+        println(mu, var)
+
+    end
+    superpx_mean_img, superpx_std_img
+end
 
 function main()
     img = imread("clutter.jpg")
@@ -358,6 +382,8 @@ function main()
     nr, nc = size(labels)
     borders = cluster_borders(labels)
     centroids = cluster_centroids(labels, nlabels)
+
+    superpixels, stdev = color_moments(img, labels, nlabels)
 
     # Display cluster boundaries and centroids
     centroid_img = zeros(labels)
@@ -393,6 +419,8 @@ function main()
 
     imwrite(segs, "segs.jpg")
     imwrite(img, "img.jpg")
+    imwrite(superpixels, "superpixels.jpg")
+    imwrite(stdev, "stdev.jpg")
     imwrite(grayim(borders), "borders.jpg")
 end
 
