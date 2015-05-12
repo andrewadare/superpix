@@ -132,6 +132,51 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
     newlabels, label
 end
 
+function update_centroids!(labels::AbstractArray, centers::AbstractArray)
+    nr, nc = size(labels)
+    nclusters = size(centers, 1)
+    isums = zeros(Float64, nclusters)
+    jsums = zeros(Float64, nclusters)
+    npix  = zeros(Int, nclusters)
+
+    # Relative neighbor indices
+    i4 = [-1,  0,  1,  0]
+    j4 = [ 0, -1,  0,  1]
+
+    for i = 1:nr
+        for j = 1:nc
+            
+            # If pixel was not labeled during the distance update step, try to 
+            # assign it an adjacent label.
+            if labels[i,j] == 0
+                for k = 1:4
+                    ni, nj = i+i4[k], j+j4[k]
+                    if (1 <= ni <= nr) && (1 <= nj <= nc)
+                        if labels[ni, nj] > 0
+                            labels[i,j] = labels[ni, nj]
+                        end
+                    end
+                end
+            end
+
+            n = labels[i,j]
+
+            n > 0 || continue
+
+            isums[n] += i
+            jsums[n] += j
+            npix[n] += 1
+        end
+    end
+
+    for n = 1:nclusters
+        npix[n] > 0 || continue
+        rowmean = clamp(isums[n]/npix[n], 1, nr)
+        colmean = clamp(jsums[n]/npix[n], 1, nc)
+        centers[n,:] = round(Int, [rowmean colmean])
+    end
+end
+
 # TODO(OPT) split image and use @parallel
 function slic(img::AbstractArray, k::Integer, m::Integer)
 
@@ -154,27 +199,22 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     # Half-size of clustering window
     s = round(Int, sqrt(nr*nc/k)) - 2
     area = s*s
-
-    # idx = Array(Int, 10*area, nclusters)
-    cluster_rows = Array(Int, 10*area, nclusters)
-    cluster_cols = Array(Int, 10*area, nclusters)
-    npix = zeros(Int, nclusters)
     m2 = m*m
 
     # Squared pixel-to-centroid Euclidean distance in LAB color space
     # color_d2 = zeros(Float64, nr, nc)
 
-
     # maxlab = 10*10*ones(Float64, nclusters) # Adaptive m-like parameter
+
+    # Distances from pixels to cluster centers, initialized to ∞
+    d = typemax(Float64)*ones(Float64, nr, nc)
 
     print("Before loop...")
     toc()
 
-    for iter = 1:1
+    for iter = 1:10
 
-        # Distances from pixels to cluster centers, initialized to ∞
-        d = convert(Float64, Inf)*ones(Float64, nr, nc)
-        npix *= 0
+        d *= typemax(Float64)
 
         ########### TODO: put this in a update_distances!() function ###########
         tic()
@@ -207,12 +247,6 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
                     if dist < d[r,c]
                         d[r,c] = dist
                         labels[r,c] = n
-
-                        # Store pixel position
-                        npix[n] += 1
-                        # idx[npix[n], n] = sub2ind(size(labels), r, c)
-                        cluster_rows[npix[n], n] = r
-                        cluster_cols[npix[n], n] = c
                     end
 
                 end
@@ -222,25 +256,12 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
         toc()
         ########### TODO: put this in a update_distances!() function ###########
 
-        ########### TODO: put this in a update_centroids!() function ###########
+        # TODO: this could go in update_centroids() (?)
+        #     # maxlab[n] = maximum(color_d2[rows,cols]) # slow
         tic()
-        for n = 1:nclusters
-            rows = cluster_rows[1:npix[n], n]
-            cols = cluster_cols[1:npix[n], n]
-            if length(rows) < 1 || length(cols) < 1
-                continue
-            end
-    
-            # Move cluster centers to new centroids
-            rowmean = clamp(mean(rows), 1, nr)
-            colmean = clamp(mean(cols), 1, nc)
-            centers[n,:] = round(Int, [rowmean colmean])
-
-            # maxlab[n] = maximum(color_d2[rows,cols]) # slow
-        end
+        update_centroids!(labels, centers)
         print("Cluster repositioning $iter...")
         toc()
-        ########### TODO: put this in a update_centroids!() function ###########
     end
     
 
@@ -257,23 +278,6 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     # end
 
     labels
-end
-
-# Return row index in the centers array for the point nearest to the nth point.
-function nearest_point_index(centers::AbstractArray, n::Integer)
-    nn = -1  # Nearest neighbor index
-    cn = centers[n,:]
-    dmin = convert(Float64, Inf)
-
-    for k = 1:nclusters
-        k != n || continue
-        r = centers[k,:] - cn
-        if dot(r,r) < dmin
-            dmin = r
-            nn = k
-        end
-    end
-    nn
 end
 
 # Assign cluster boundaries at pixels whose label differs from its neighbor 
