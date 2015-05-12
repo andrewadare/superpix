@@ -1,5 +1,4 @@
 using Images
-# using Color
 
 # Compute a hexagonal grid over a 2D region of size h x w.
 # An n x 2 array of row,col positions is returned, where n <= k is the number
@@ -144,6 +143,10 @@ function update_distances!(img::AbstractArray,
     area = s*s
     m2 = m*m
 
+    # Squared pixel-to-centroid Euclidean distance in LAB color space
+    # color_d2 = zeros(Float64, nr, nc)
+    # maxlab = 10*10*ones(Float64, nclusters) # Adaptive m-like parameter
+
     for n = 1:nclusters
 
         # Centroid of cluster n
@@ -242,11 +245,6 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     # Cluster labels for each pixel
     labels = zeros(Int, nr, nc)
     
-    # Squared pixel-to-centroid Euclidean distance in LAB color space
-    # color_d2 = zeros(Float64, nr, nc)
-
-    # maxlab = 10*10*ones(Float64, nclusters) # Adaptive m-like parameter
-
     # Distances from pixels to cluster centers, initialized to ∞
     d = typemax(Float64)*ones(Float64, nr, nc)
 
@@ -270,20 +268,11 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
         toc()
     end
     
+    # Fix any disconnected pixels and merge small clusters to neighbors
+    min_cluster_size = round(Int, 0.5*nr*nc/k)
+    newlabels, nlabels = reconnect(labels, min_cluster_size)
 
-    # # Visualize original and adjusted grid positions
-    # for n = 1:size(grid,1)
-    #     i,j = grid[n,:]
-    #     img[i,j] = Color.RGB(0,1,0)
-
-    #     # i,j = seeds[n,:]
-    #     # img[i,j] = Color.RGB(1,0,0)
-
-    #     i,j = centers[n,:]
-    #     img[i,j] = Color.RGB(1,0,1)
-    # end
-
-    labels
+    newlabels, nlabels
 end
 
 # Assign cluster boundaries at pixels whose label differs from its neighbor 
@@ -299,6 +288,38 @@ function cluster_borders(labels::AbstractArray)
         end
     end
     borders
+end
+
+# Assign cluster boundaries at pixels whose label differs from its neighbor 
+# below (i+1) or to the right (j+1).
+function cluster_centroids(labels::AbstractArray, nclusters::Integer)
+    nr,nc = size(labels)
+    isums = zeros(Float64, nclusters)
+    jsums = zeros(Float64, nclusters)
+    npix  = zeros(Int, nclusters)
+    ctrs  = zeros(Int, nclusters, 2)
+
+    for i = 1:nr
+        for j = 1:nc
+
+            n = labels[i,j]
+
+            n > 0 || continue
+
+            isums[n] += i
+            jsums[n] += j
+            npix[n] += 1
+        end
+    end
+
+    for n = 1:nclusters
+        npix[n] > 0 || continue
+        rowmean = clamp(isums[n]/npix[n], 1, nr)
+        colmean = clamp(jsums[n]/npix[n], 1, nc)
+        ctrs[n,:] = round(Int, [rowmean colmean])
+    end
+    
+    ctrs
 end
 
 # function regional_adjacency_graph()
@@ -327,30 +348,48 @@ function main()
     # Cluster compactness parameter. 
     # Large m favors roundness and uniformity (hex cells as m -> ∞)
     # Small m favors color edge adherence.
-    m = 10
-
     # Note: k and m are coupled, since the clustering distance is a quadrature
     # sum of spatial_distance/s and color_distance/m where s = sqrt(h*w/k).
+    m = 10
     
-    @time labels = slic(imlab, k, m)
-
-    min_cluster_size = round(Int, 0.5*length(img)/k)
-
-    # Eventually this function will go inside slic().
-    newlabels, nlabels = reconnect(labels, min_cluster_size)
+    @time labels, nlabels = slic(imlab, k, m)
     
-    # Create and save an image
-    cluster_img = grayim(newlabels)
-    cluster_img /= maximum(cluster_img)
-    sc(cluster_img)
-    imwrite(cluster_img, "newlabels_grayscale.jpg")
-
+    # Overlay cluster boundaries on image
+    nr, nc = size(labels)
     borders = cluster_borders(labels)
-    newborders = cluster_borders(newlabels)
+    centroids = cluster_centroids(labels, nlabels)
 
-    imwrite(img, "img.jpg")
+    # # One method to superimpose multiple layers
+    # segs = colorim(zeros(Float32,3,nr,nc))
+    # for i = 1:nr
+    #     for j = 1:nc
+    #         segs[i,j] = borders[i,j] > 0 ? Color.RGB(1,0,0) : Color.RGB(0,0,0)
+    #     end
+    # end
+    # for c in 1:nlabels
+    #     row, col = centroids[c, 1], centroids[c, 2]
+    #     if (1 <= row <= nr) && (1 <= col <= nc)
+    #         segs[row, col] = Color.RGB(0,1,0)
+    #         # centroid_img[row, col] = 1
+    #     end
+    # end
+
+    # A second method
+    centroid_img = zeros(labels)
+    for c in 1:nlabels
+        row, col = centroids[c, 1], centroids[c, 2]
+        if (1 <= row <= nr) && (1 <= col <= nc)
+            centroid_img[row, col] = 1
+        end
+    end
+    segs = Overlay((borders', centroid_img'), 
+                   (Color.RGB(1,0,0), Color.RGB(0,1,0)),
+                   ((0,1), (0,1))
+                   )
+                   # (Images.Clamp{Float64}(), Images.Clamp{Float64}()))
+
+    imwrite(segs, "img.jpg")
     imwrite(grayim(borders), "borders.jpg")
-    imwrite(grayim(newborders), "newborders.jpg")
 end
 
 main()
