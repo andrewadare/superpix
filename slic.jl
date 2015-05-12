@@ -93,11 +93,9 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
             # Find an adjacent newlabel for later merging of small segments
             for k = 1:4
                 ni, nj = i+i4[k], j+j4[k]
-                if (1 <= ni <= nr) && (1 <= nj <= nc)
-                    if newlabels[ni, nj] > 0
-                        adjlabel = newlabels[ni, nj]
-                    end
-                end
+                (1 <= ni <= nr && 1 <= nj <= nc) || continue
+                newlabels[ni, nj] > 0 || continue
+                adjlabel = newlabels[ni, nj]
             end
 
             # Do a depth-first search to find connected pixel labels
@@ -130,6 +128,54 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
     end
 
     newlabels, label
+end
+
+function update_distances!(img::AbstractArray, 
+                           labels::AbstractArray,
+                           centers::AbstractArray,
+                           d::AbstractArray,
+                           k::Integer,
+                           m::Integer)
+    nr, nc = size(img)
+    nclusters = size(centers, 1)
+
+    # Half-size of clustering window
+    s = round(Int, sqrt(nr*nc/k)) - 2
+    area = s*s
+    m2 = m*m
+
+    for n = 1:nclusters
+
+        # Centroid of cluster n
+        i,j = centers[n,:]
+
+        # Clustering window (2s x 2s) centered at point i,j for seed n
+        rows = max(1, i-s) : min(nr, i+s)
+        cols = max(1, j-s) : min(nc, j+s)
+
+        # Loop through clustering window
+        for r in rows
+            for c in cols               
+                # Squared pixel-to-centroid Euclidean distance
+                sdiff = [r,c] - [i,j]
+                pixel_d2 = dot(sdiff, sdiff)
+    
+                # Squared color distance in LAB color space
+                # pc and cc are the pixel and centroid ColorValues
+                pc, cc = img[r,c], img[i,j]
+                cdiff = [pc.l - cc.l, pc.a - cc.a, pc.b - cc.b]
+                color_d2 = dot(cdiff, cdiff)
+
+                dist = pixel_d2/area + color_d2/m2
+
+                # Assign new distances and labels
+                if dist < d[r,c]
+                    d[r,c] = dist
+                    labels[r,c] = n
+                end
+            end
+        end
+    end
 end
 
 function update_centroids!(labels::AbstractArray, centers::AbstractArray)
@@ -196,11 +242,6 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     # Cluster labels for each pixel
     labels = zeros(Int, nr, nc)
     
-    # Half-size of clustering window
-    s = round(Int, sqrt(nr*nc/k)) - 2
-    area = s*s
-    m2 = m*m
-
     # Squared pixel-to-centroid Euclidean distance in LAB color space
     # color_d2 = zeros(Float64, nr, nc)
 
@@ -212,49 +253,14 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     print("Before loop...")
     toc()
 
-    for iter = 1:10
+    for iter = 1:5
 
         d *= typemax(Float64)
 
-        ########### TODO: put this in a update_distances!() function ###########
         tic()
-        for n = 1:nclusters
-
-            # Centroid of cluster n
-            i,j = centers[n,:]
-
-            # Clustering window (2s x 2s) centered at point i,j for seed n
-            rows = max(1, i-s) : min(nr, i+s)
-            cols = max(1, j-s) : min(nc, j+s)
-
-            # Loop through clustering window
-            for r in rows
-                for c in cols
-                    
-                    # Squared pixel-to-centroid Euclidean distance
-                    sdiff = [r,c] - [i,j]
-                    pixel_d2 = dot(sdiff, sdiff)
-
-                    # Squared color distance in LAB color space
-                    # pc and cc are the pixel and centroid ColorValues
-                    pc, cc = img[r,c], img[i,j]
-                    cdiff = [pc.l - cc.l, pc.a - cc.a, pc.b - cc.b]
-                    color_d2 = dot(cdiff, cdiff)
-                    
-                    dist = pixel_d2/area + color_d2/m2
-
-                    # Assign new distances and labels
-                    if dist < d[r,c]
-                        d[r,c] = dist
-                        labels[r,c] = n
-                    end
-
-                end
-            end
-        end
+        update_distances!(img, labels, centers, d, k, m)
         print("Dist calcs $iter...")
         toc()
-        ########### TODO: put this in a update_distances!() function ###########
 
         # TODO: this could go in update_centroids() (?)
         #     # maxlab[n] = maximum(color_d2[rows,cols]) # slow
@@ -328,15 +334,11 @@ function main()
     
     @time labels = slic(imlab, k, m)
 
-    min_cluster_size = round(Int, sqrt(length(img)/k))
+    min_cluster_size = round(Int, 0.5*length(img)/k)
 
     # Eventually this function will go inside slic().
     newlabels, nlabels = reconnect(labels, min_cluster_size)
     
-    # show(labels[1:50, 1:50])
-    # println("\n nlabels: $nlabels")
-    # show(newlabels[1:50, 1:50])
-
     # Create and save an image
     cluster_img = grayim(newlabels)
     cluster_img /= maximum(cluster_img)
