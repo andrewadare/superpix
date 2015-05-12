@@ -114,20 +114,17 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
                             newlabels[ni, nj] = label
                         end
                     end
-                    # println("$ni, $nj: label $label newlabel $(newlabels[ni, nj])")
                 end
             end
 
-            # # Reassign small clusters to adjlabel & decrement label count.
-            # if count < min_cluster_size
-            #     for c = 1:count
-            #         # println("iseg[$c],jseg[$c] = $(iseg[c]), $(jseg[c])")
-            #         newlabels[iseg[c],jseg[c]] = adjlabel
-            #     end
-            #     label -= 1
-            # end
-
-            label += 1
+            # Reassign small clusters to adjlabel
+            if segsize < min_cluster_size
+                for c = 1:segsize
+                    newlabels[iseg[c],jseg[c]] = adjlabel
+                end
+            else
+                label += 1
+            end
         end
     end
 
