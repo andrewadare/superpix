@@ -362,6 +362,21 @@ function cluster_centroids(labels::AbstractArray, nclusters::Integer)
     ctrs
 end
 
+function color_means(img, labels, nlabels)
+    superpx_mean_img = similar(img)
+
+    var = zeros(Float64, 3)
+    for label in 1:nlabels
+        indices = find(labels .== label)
+        segment = img[indices]
+        mu = mean(segment)
+
+        isnan(mu) && continue
+        superpx_mean_img[indices] = mu
+    end
+    superpx_mean_img
+end
+
 function color_moments(img, labels, nlabels)
     superpx_mean_img = zeros(img)
     superpx_std_img = zeros(img)
@@ -394,10 +409,16 @@ function color_moments(img, labels, nlabels)
 end
 
 function main()
-    img = imread("clutter.jpg")
+    # img = imread("clutter.jpg")
+    img = imread("rgb.png")
 
-    # Convert to CIELAB color space for improved gradients and color distances
-    imlab = convert(Image{Color.LAB}, float32(img))
+    # Convert to CIELAB color space for improved gradients and color distances.
+    # Correct back to x vs y order of img if not already matching.
+    imlab = convert(Image{Color.LAB}, map(Float32, separate(img)))
+    if spatialorder(imlab) != spatialorder(img)
+        imlab = permutedims(imlab, spatialpermutation(spatialorder(img), imlab))
+    end
+    @assert spatialorder(img) == println(spatialorder(imlab)
 
     # Approximate number of requested superpixels.
     k = 1000
@@ -413,11 +434,13 @@ function main()
     
     # Overlay cluster boundaries on image
     nr, nc = size(labels)
-    # borders = cluster_borders(labels)
+    println(size(labels))
+    println(size(img))
     graph, borders = adjacency_graph(labels, nlabels)
     centroids = cluster_centroids(labels, nlabels)
 
-    superpixels, stdev = color_moments(img, labels, nlabels)
+    superpixels = color_means(img, labels, nlabels)
+    # superpixels, stdev = color_moments(img, labels, nlabels)
 
     # Display cluster boundaries and centroids
     centroid_img = zeros(labels)
@@ -435,11 +458,11 @@ function main()
                    ((0,1), (0,1), (0,1))
                    )
 
-    # Superimpose cluster boundaries on the input image
+    white = convert(eltype(img), Color.RGB(1,1,1))
     for i = 1:nr
         for j = 1:nc
             if borders[i,j] > 0
-            img[i,j] = Color.RGB(1,1,1)
+                img[i,j] = white
             end
         end
     end
@@ -454,7 +477,7 @@ function main()
     imwrite(segs, "segs.jpg")
     imwrite(img, "img.jpg")
     imwrite(superpixels, "superpixels.jpg")
-    imwrite(stdev, "stdev.jpg")
+    # imwrite(stdev, "stdev.jpg")
     imwrite(grayim(borders), "borders.jpg")
 end
 
