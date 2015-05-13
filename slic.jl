@@ -195,7 +195,9 @@ function reconnect(labels::AbstractArray, min_cluster_size::Integer)
                 adjlabel = newlabels[ni, nj]
             end
 
-            # Do a depth-first search to find connected pixel labels
+            # Depth-first search: find all connected labels matching labels[i,j].
+            # The pixel rows and columns of this cluster/segment will be stored
+            # in iseg[1:segsize] and jseg[1:segsize].
             iseg[1], jseg[1] = i, j
             counter, segsize = 0, 1
             while counter < segsize
@@ -276,23 +278,9 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     newlabels, nlabels
 end
 
-# Assign cluster boundaries at pixels whose label differs from its neighbor 
-# below (i+1) or to the right (j+1).
-function cluster_borders(labels::AbstractArray)
-    m,n = size(labels)
-    borders = zeros(m,n)
-    for i = 1:m-1
-        for j = 1:n-1
-            if labels[i,j] != labels[i+1,j] || labels[i,j] != labels[i,j+1] 
-                borders[i,j] = 1 
-            end
-        end
-    end
-    borders
-end
-
-# Assign cluster boundaries at pixels whose label differs from its neighbor 
-# below (i+1) or to the right (j+1).
+# 1. Return a regional adjacency graph (LightGraphs.jl) whose nodes correspond
+#    to segment labels. This is a planar graph. Edges join adjacent nodes only.
+# 2. Assign cluster boundaries at pixels whose label differs from their neighbor.
 function adjacency_graph(labels::AbstractArray, nlabels)
     g = Graph(nlabels)
     nr, nc = size(labels)
@@ -446,8 +434,6 @@ function main()
                    (Color.RGB(0.2,0.2,0.2), Color.RGB(0,0.5,1), Color.RGB(1,1,0)),
                    ((0,1), (0,1), (0,1))
                    )
-                   # (Images.Clamp{Float64}(), Images.Clamp{Float64}()))
-
 
     # Superimpose cluster boundaries on the input image
     for i = 1:nr
