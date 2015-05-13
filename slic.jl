@@ -321,6 +321,27 @@ function adjacency_graph(labels::AbstractArray, nlabels)
     g, borders
 end
 
+function graph_image(g::Graph, centroids::AbstractArray, nr::Int, nc::Int)
+    img = zeros(nr, nc)
+    for e in edges(g)
+        r1, c1 = centroids[src(e), 1], centroids[src(e), 2]
+        r2, c2 = centroids[dst(e), 1], centroids[dst(e), 2]
+        if (1 <= r1 <= nr) && (1 <= c1 <= nc) && (1 <= r2 <= nr) && (1 <= c2 <= nc)
+            dist = hypot(r2-r1, c2-c1)
+            theta = atan2(r2-r1, c2-c1)
+            i, d = 0, 0
+            while d < dist
+                dr = i*sin(theta)
+                dc = i*cos(theta)
+                img[round(Int, r1+dr), round(Int, c1+dc)] = 1
+                d = hypot(dr, dc)
+                i += 1
+            end
+        end
+    end
+    img
+end
+
 # Assign cluster boundaries at pixels whose label differs from its neighbor 
 # below (i+1) or to the right (j+1).
 function cluster_centroids(labels::AbstractArray, nclusters::Integer)
@@ -418,14 +439,17 @@ function main()
             centroid_img[row, col] = 1
         end
     end
-    segs = Overlay((borders', centroid_img'), 
-                   (Color.RGB(0.2,0.2,0.2), Color.RGB(1,1,0)),
-                   ((0,1), (0,1))
+
+    graph_edges = graph_image(graph, centroids, nr, nc)
+
+    segs = Overlay((borders', graph_edges', centroid_img'), 
+                   (Color.RGB(0.2,0.2,0.2), Color.RGB(0,0.5,1), Color.RGB(1,1,0)),
+                   ((0,1), (0,1), (0,1))
                    )
                    # (Images.Clamp{Float64}(), Images.Clamp{Float64}()))
 
 
-    # Superimpose cluster boundaries on image
+    # Superimpose cluster boundaries on the input image
     for i = 1:nr
         for j = 1:nc
             if borders[i,j] > 0
@@ -440,7 +464,6 @@ function main()
     #         # centroid_img[row, col] = 1
     #     end
     # end
-
 
     imwrite(segs, "segs.jpg")
     imwrite(img, "img.jpg")
