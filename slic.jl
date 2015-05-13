@@ -1,5 +1,5 @@
 using Images
-import Base: var # To add methods for ColorValue types
+using LightGraphs
 
 # Compute a hexagonal grid over a 2D region of size h x w.
 # An n x 2 array of row,col positions is returned, where n <= k is the number
@@ -293,6 +293,36 @@ end
 
 # Assign cluster boundaries at pixels whose label differs from its neighbor 
 # below (i+1) or to the right (j+1).
+function adjacency_graph(labels::AbstractArray, nlabels)
+    g = Graph(nlabels)
+    nr, nc = size(labels)
+    borders = zeros(nr, nc)
+
+    # Relative neighbor indices
+    i4 = [-1,  0,  1,  0]
+    j4 = [ 0, -1,  0,  1]
+
+    for i = 1:nr
+        for j = 1:nc
+            for k = 1:4
+                ni, nj = i+i4[k], j+j4[k]
+                if (1 <= ni <= nr) && (1 <= nj <= nc)
+                    if labels[i,j] != labels[ni, nj]
+                        borders[i,j] = 1
+                        if !has_edge(g, labels[i,j], labels[ni, nj])
+                            add_edge!(g, labels[i,j], labels[ni, nj])
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    g, borders
+end
+
+# Assign cluster boundaries at pixels whose label differs from its neighbor 
+# below (i+1) or to the right (j+1).
 function cluster_centroids(labels::AbstractArray, nclusters::Integer)
     nr,nc = size(labels)
     isums = zeros(Float64, nclusters)
@@ -323,10 +353,6 @@ function cluster_centroids(labels::AbstractArray, nclusters::Integer)
     ctrs
 end
 
-function myvar(v::Vector{Color.RGB}, mu::Color.RGB)
-    mapreduce(x->x^2, +, [v.r-mu.r, v.g-mu.g, v.b-mu.b])/max(1, length(v)-1)
-end
-
 function color_moments(img, labels, nlabels)
     superpx_mean_img = zeros(img)
     superpx_std_img = zeros(img)
@@ -354,8 +380,6 @@ function color_moments(img, labels, nlabels)
         stdev = sqrt(var)
         superpx_mean_img[indices] = mu
         superpx_std_img[indices] = Color.RGB(stdev[1], stdev[2], stdev[3])
-        println(mu, var)
-
     end
     superpx_mean_img, superpx_std_img
 end
@@ -380,7 +404,8 @@ function main()
     
     # Overlay cluster boundaries on image
     nr, nc = size(labels)
-    borders = cluster_borders(labels)
+    # borders = cluster_borders(labels)
+    graph, borders = adjacency_graph(labels, nlabels)
     centroids = cluster_centroids(labels, nlabels)
 
     superpixels, stdev = color_moments(img, labels, nlabels)
