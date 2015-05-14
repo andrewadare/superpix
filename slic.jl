@@ -281,8 +281,12 @@ end
 # 1. Return a regional adjacency graph (LightGraphs.jl) whose nodes correspond
 #    to segment labels. This is a planar graph. Edges join adjacent nodes only.
 # 2. Assign cluster boundaries at pixels whose label differs from their neighbor.
-function adjacency_graph(labels::AbstractArray, nlabels)
+function adjacency_graph(labels::AbstractArray,
+                         nlabels::Integer,
+                         lab_means::Dict,
+                         dep_means::Dict)
     g = Graph(nlabels)
+    edge_dists = spzeros(nlabels, nlabels)
     nr, nc = size(labels)
     borders = zeros(nr, nc)
 
@@ -298,7 +302,20 @@ function adjacency_graph(labels::AbstractArray, nlabels)
                     if labels[i,j] != labels[ni, nj]
                         borders[i,j] = 1
                         if !has_edge(g, labels[i,j], labels[ni, nj])
-                            add_edge!(g, labels[i,j], labels[ni, nj])
+                            a, b = labels[i,j], labels[ni, nj]
+                            add_edge!(g, a, b)
+                            
+                            # Assign edge weights based on color and depth
+                            # Color distance
+                            ca, cb = lab_means[a], lab_means[b]
+                            # cdiff = [ca.r - cb.r, ca.g - cb.g, ca.b - cb.b]
+                            cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
+                            color_d2 = dot(cdiff, cdiff)
+
+                            # Depth distance
+                            depth_d2 = (dep_means[a] - dep_means[b])^2
+
+                            edge_dists[a,b] = color_d2 + depth_d2
                         end
                     end
                 end
@@ -362,19 +379,42 @@ function cluster_centroids(labels::AbstractArray, nclusters::Integer)
     ctrs
 end
 
+function generalized_mean(A::AbstractArray)
+    t = eltype(A)
+    if t <: Union(Number, Images.ColorTypes.Gray, Images.ColorTypes.RGB)
+        return mean(A)
+    elseif t == Color.Lab{Float32}
+    # elseif t <: Images.ColorTypes.Lab
+        c = zeros(Float32, 3)
+        for pixel in A
+            c[1] += pixel.l
+            c[2] += pixel.a
+            c[3] += pixel.b
+        end
+        c /= length(A)
+        return Color.LAB{Float32}(c[1], c[2], c[3])
+    end
+
+    error("No implementation for $(eltype(A))")
+    NaN
+end
+
 function color_means(img, labels, nlabels)
+    # d = Dict{Int, Float32}()
+    d = Dict()
     superpx_mean_img = similar(img)
 
     var = zeros(Float64, 3)
     for label in 1:nlabels
         indices = find(labels .== label)
         segment = img[indices]
-        mu = mean(segment)
-
-        isnan(mu) && continue
+        mu = generalized_mean(segment)
+        # println(mu)
+        # isnan(mu) && continue
+        d[label] = mu
         superpx_mean_img[indices] = mu
     end
-    superpx_mean_img
+    d, superpx_mean_img
 end
 
 function color_moments(img, labels, nlabels)
@@ -411,14 +451,16 @@ end
 function main()
     # img = imread("clutter.jpg")
     img = imread("rgb.png")
+    depth_img = imread("dep.png")
 
     # Convert to CIELAB color space for improved gradients and color distances.
     # Correct back to x vs y order of img if not already matching.
     imlab = convert(Image{Color.LAB}, map(Float32, separate(img)))
     if spatialorder(imlab) != spatialorder(img)
-        imlab = permutedims(imlab, spatialpermutation(spatialorder(img), imlab))
+        perm = spatialpermutation(spatialorder(img), imlab)
+        imlab = permutedims(imlab, perm)
     end
-    @assert spatialorder(img) == println(spatialorder(imlab)
+    @assert spatialorder(img) == spatialorder(imlab)
 
     # Approximate number of requested superpixels.
     k = 1000
@@ -432,15 +474,12 @@ function main()
     
     @time labels, nlabels = slic(imlab, k, m)
     
-    # Overlay cluster boundaries on image
-    nr, nc = size(labels)
-    println(size(labels))
-    println(size(img))
-    graph, borders = adjacency_graph(labels, nlabels)
-    centroids = cluster_centroids(labels, nlabels)
+    lab_means, color_superpix = color_means(imlab,     labels, nlabels)
+    dep_means, depth_superpix = color_means(depth_img, labels, nlabels)
 
-    superpixels = color_means(img, labels, nlabels)
-    # superpixels, stdev = color_moments(img, labels, nlabels)
+    nr, nc = size(labels)
+    graph, borders = adjacency_graph(labels, nlabels, lab_means, dep_means)
+    centroids = cluster_centroids(labels, nlabels)
 
     # Display cluster boundaries and centroids
     centroid_img = zeros(labels)
@@ -476,7 +515,11 @@ function main()
 
     imwrite(segs, "segs.jpg")
     imwrite(img, "img.jpg")
-    imwrite(superpixels, "superpixels.jpg")
+
+    sprgb = convert(Image{Color.RGB}, map(Float32, separate(color_superpix)))
+    imwrite(sprgb, "color_superpix.jpg")
+    # imwrite(color_superpix, "color_superpix.jpg")
+    imwrite(depth_superpix, "depth_superpix.jpg")
     # imwrite(stdev, "stdev.jpg")
     imwrite(grayim(borders), "borders.jpg")
 end
