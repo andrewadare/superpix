@@ -11,8 +11,8 @@ j4 = [ 0, -1,  0,  1]
 dep_x_range = 60:420
 dep_y_range = 120:290
 dep = convert(Array{Float32}, depth_img[dep_x_range, dep_y_range])
-rgb_x_range = 355:1445
-rgb_y_range = 240:755
+rgb_x_range = 390:1445
+rgb_y_range = 250:750
 rgb = color_img[rgb_x_range, rgb_y_range]
 
 # Assign empty pixels to a neighboring value
@@ -40,5 +40,5 @@ dep /= maximum(dep)
 println("cropped depth image aspect ratio: $(size(dep, 1)/size(dep, 2))")
 println("cropped rgb   image aspect ratio: $(size(rgb, 1)/size(rgb, 2))")
 
-imwrite(dep', "dep.png")
-imwrite(rgb', "rgb.png")
+imwrite(dep', "dep.png") # Size is 171x361
+imwrite(rgb', "rgb.png") # Size is 501x1056 -> Resize to 171x361
