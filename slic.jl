@@ -286,7 +286,8 @@ function adjacency_graph(labels::AbstractArray,
                          lab_means::Dict,
                          dep_means::Dict)
     g = Graph(nlabels)
-    edge_dists = spzeros(nlabels, nlabels)
+    dep_dists = spzeros(nlabels, nlabels)
+    lab_dists = spzeros(nlabels, nlabels)
     nr, nc = size(labels)
     borders = zeros(nr, nc)
 
@@ -303,19 +304,43 @@ function adjacency_graph(labels::AbstractArray,
                         borders[i,j] = 1
                         if !has_edge(g, labels[i,j], labels[ni, nj])
                             a, b = labels[i,j], labels[ni, nj]
-                            add_edge!(g, a, b)
-                            
-                            # Assign edge weights based on color and depth
-                            # Color distance
                             ca, cb = lab_means[a], lab_means[b]
-                            # cdiff = [ca.r - cb.r, ca.g - cb.g, ca.b - cb.b]
-                            cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
-                            color_d2 = dot(cdiff, cdiff)
+                            
+                            rgb = convert(Color.RGB, ca)
+                            # if Color.colordiff(rgb, Color.RGB(0.1, 0.1, 0.1)) < 10
 
-                            # Depth distance
-                            depth_d2 = (dep_means[a] - dep_means[b])^2
+                            # rg, rb = atan2(rgb.r, rgb.g), atan2(rgb.r, rgb.b)
+                            # if (abs(rg-pi/4) < 0.01) && (abs(rb-pi/4) < 0.01)
+                            #     continue
+                            # end
 
-                            edge_dists[a,b] = color_d2 + depth_d2
+                            # println(rgb)
+                            # if abs(rgb.r-rgb.g)/(rgb.r+rgb.g) < 
+                            #     continue
+                            # end
+                            # if rgb.r < 0.3
+                            #     continue
+                            # end
+
+                            # ca.l > 30 || continue # Dark (conveyor belt)
+                            # ca.a > -3 || continue # Green (conveyor edges)
+
+                            is_dark_gray = false
+                            for q=0:4
+                                c = Color.RGB(0.1*q, 0.1*q, 0.1*q)
+                                if Color.colordiff(rgb, c) < 12
+                                    is_dark_gray = true
+                                end
+                            end
+                            if !is_dark_gray && ca.a > -3
+                                add_edge!(g, a, b)
+                                # Assign edge weights based on color and depth
+                                # Color distance
+                                cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
+                                lab_dists[a,b] = dot(cdiff, cdiff)
+                                # Depth distance
+                                dep_dists[a,b] = abs(dep_means[a] - dep_means[b])
+                            end
                         end
                     end
                 end
@@ -323,7 +348,12 @@ function adjacency_graph(labels::AbstractArray,
         end
     end
 
-    g, borders
+    lab_dists -= minimum(lab_dists)
+    dep_dists -= minimum(dep_dists)
+    lab_dists /= maximum(lab_dists)
+    dep_dists /= maximum(dep_dists)
+
+    g, lab_dists + dep_dists, borders
 end
 
 function graph_image(g::Graph, centroids::AbstractArray, nr::Int, nc::Int)
@@ -383,8 +413,7 @@ function generalized_mean(A::AbstractArray)
     t = eltype(A)
     if t <: Union(Number, Images.ColorTypes.Gray, Images.ColorTypes.RGB)
         return mean(A)
-    elseif t == Color.Lab{Float32}
-    # elseif t <: Images.ColorTypes.Lab
+    elseif t <: Images.ColorTypes.Lab
         c = zeros(Float32, 3)
         for pixel in A
             c[1] += pixel.l
@@ -395,7 +424,7 @@ function generalized_mean(A::AbstractArray)
         return Color.LAB{Float32}(c[1], c[2], c[3])
     end
 
-    error("No implementation for $(eltype(A))")
+    error("No implementation for type $t")
     NaN
 end
 
@@ -449,7 +478,6 @@ function color_moments(img, labels, nlabels)
 end
 
 function main()
-    # img = imread("clutter.jpg")
     img = imread("rgb.png")
     depth_img = imread("dep.png")
 
@@ -478,8 +506,24 @@ function main()
     dep_means, depth_superpix = color_means(depth_img, labels, nlabels)
 
     nr, nc = size(labels)
-    graph, borders = adjacency_graph(labels, nlabels, lab_means, dep_means)
+    graph, edgewts, borders = adjacency_graph(labels, nlabels, lab_means, dep_means)
     centroids = cluster_centroids(labels, nlabels)
+
+    println("Adjacency graph has $(nv(graph)) vertices and $(ne(graph)) edges.")
+    for e in edges(graph)
+        a, b = src(e), dst(e)
+        wt = edgewts[a,b]
+        thresh = 0.18
+        flag = ""
+        if wt > thresh 
+            flag = "<-- remove"
+            rem_edge!(graph, e)
+        end
+        # println("$a, $b     $wt $flag")
+    end
+    # for x in zip(keys(lab_means), values(lab_means))
+    #     println("$(x[1]): $(x[2])")
+    # end
 
     # Display cluster boundaries and centroids
     centroid_img = zeros(labels)
