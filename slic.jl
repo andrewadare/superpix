@@ -477,7 +477,7 @@ function color_moments(img, labels, nlabels)
     superpx_mean_img, superpx_std_img
 end
 
-function main()
+function segmentation_example()
     img = imread("rgb.png")
     depth_img = imread("dep.png")
 
@@ -519,8 +519,8 @@ function main()
             flag = "<-- remove"
             rem_edge!(graph, e)
         end
-        # println("$a, $b     $wt $flag")
     end
+
     # for x in zip(keys(lab_means), values(lab_means))
     #     println("$(x[1]): $(x[2])")
     # end
@@ -567,5 +567,3 @@ function main()
     # imwrite(stdev, "stdev.jpg")
     imwrite(grayim(borders), "borders.jpg")
 end
-
-main()
