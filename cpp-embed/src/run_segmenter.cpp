@@ -30,8 +30,14 @@ int main(int argc, char *argv[])
   string depfile = string(argv[2]);
 
   // Read image and get dimensions
-  cv::Mat rgb_img = cv::imread(rgbfile);
-  cv::Mat dep_img = cv::imread(depfile);
+  cv::Mat rgb_img_full = cv::imread(rgbfile);
+  cv::Mat dep_img_full = cv::imread(depfile);
+
+  // Crop images
+  int tlx = 100, tly = 90, w = 700, h = 290;
+  cv::Rect roi(tlx, tly, w, h);
+  cv::Mat rgb_img(rgb_img_full, roi);
+  cv::Mat dep_img(dep_img_full, roi);
 
   if (!checkImageSizes(rgb_img, dep_img))
     return -1;
