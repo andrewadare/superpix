@@ -21,9 +21,17 @@ function main(pbuff::Array{UInt32, 1}, nrows::Int64, ncols::Int64)
         end
     end
 
+    # Depth image preprocessing
+    mindep = minimum(dep[dep .> 0])
+    maxdep = maximum(dep)
+    println("min, max = $mindep, $maxdep")
+    dep = clamp(dep, mindep, maxdep) - mindep
+    dep /= maximum(dep)
+    println("min, max = $(minimum(dep)), $(maximum(dep))")
+
     # This works:
-    # depth_img = grayim(dep)
-    # imwrite(depth_img, "depth.jpg")
+    depth_img = grayim(dep)
+    imwrite(depth_img, "depth.jpg")
 
     imlab = Image(alab)
     imlab["IMcs"] = "sRGB"
