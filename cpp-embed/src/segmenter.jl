@@ -16,7 +16,6 @@ function main(pbuff::Array{UInt32, 1}, nrows::Int64, ncols::Int64)
             g = ((p >>  8) & 0xFF)/255
             r = ((p >> 16) & 0xFF)/255
             d = ((p >> 24) & 0xFF)/255
-            println("$i, $j")
             dep[i,j] = d
             alab[i,j] = convert(Color.Lab{Float32}, Color.RGB(r, g, b))
         end
