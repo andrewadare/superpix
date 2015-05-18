@@ -325,22 +325,24 @@ function adjacency_graph(labels::AbstractArray,
                             # ca.l > 30 || continue # Dark (conveyor belt)
                             # ca.a > -3 || continue # Green (conveyor edges)
 
-                            is_dark_gray = false
-                            for q=0:4
-                                c = Color.RGB(0.1*q, 0.1*q, 0.1*q)
-                                if Color.colordiff(rgb, c) < 12
-                                    is_dark_gray = true
-                                end
-                            end
-                            if !is_dark_gray && ca.a > -3
-                                add_edge!(g, a, b)
-                                # Assign edge weights based on color and depth
-                                # Color distance
-                                cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
-                                lab_dists[a,b] = dot(cdiff, cdiff)
-                                # Depth distance
-                                dep_dists[a,b] = abs(dep_means[a] - dep_means[b])
-                            end
+                            # Unfortunately doesn't work on metal
+                            # is_dark_gray = false
+                            # for q=0:4
+                            #     c = Color.RGB(0.1*q, 0.1*q, 0.1*q)
+                            #     if Color.colordiff(rgb, c) < 12
+                            #         is_dark_gray = true
+                            #     end
+                            # end
+
+
+                            add_edge!(g, a, b)
+                            # Assign edge weights based on color and depth
+                            # Color distance
+                            cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
+                            lab_dists[a,b] = dot(cdiff, cdiff)
+                            # Depth distance
+                            dep_dists[a,b] = abs(dep_means[a] - dep_means[b])
+
                         end
                     end
                 end
