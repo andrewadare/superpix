@@ -12,7 +12,8 @@
 
 using namespace std;
 
-void cvMat2Array(cv::Mat &img, unsigned int* pbuff);
+bool checkImageSizes(cv::Mat &img1, cv::Mat &img2);
+void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff);
 int loadJuliaFunctions(string filename);
 
 int main(int argc, char *argv[])
@@ -20,22 +21,32 @@ int main(int argc, char *argv[])
   jl_init(JULIA_INIT_DIR);
 
   // 1st arg (required): Name of input image
-  if (argc < 2)
+  if (argc < 3)
   {
-    cout << "Usage: " << argv[0] << " in.jpg" << endl;
+    cout << "Usage: " << argv[0] << " colorimg.jpg depthimg.jpg" << endl;
     return 1;
   }
-  string imfilename = string(argv[1]);
+  string rgbfile = string(argv[1]);
+  string depfile = string(argv[2]);
 
   // Read image and get dimensions
-  cv::Mat img = cv::imread(imfilename);
-  cout << "Read cv::Mat from " << imfilename
-       << " (" << img.rows << "x" << img.cols << " rows x cols)" << endl;
+  cv::Mat rgb_img = cv::imread(rgbfile);
+  cv::Mat dep_img = cv::imread(depfile);
 
-  // Copy image data into an array  
-  const int sz = img.rows*img.cols;
+  if (!checkImageSizes(rgb_img, dep_img))
+    return -1;
+
+  int nrows = rgb_img.rows, ncols = rgb_img.cols;
+  const int sz = nrows*ncols;
+
+  cout << "Read color cv::Mat from " << rgbfile
+       << " (" << nrows << "x" << ncols << " rows x cols)" << endl;
+  cout << "Read depth cv::Mat from " << depfile
+       << " (" << nrows << "x" << ncols << " rows x cols)" << endl;
+
+  // Copy image data into an array
   unsigned int* pbuff = new unsigned[sz];
-  cvMat2Array(img, pbuff);
+  cvMat2Array(rgb_img, dep_img, pbuff);
 
   // TEMP: write pbuff to a text file
   ofstream fs("pbuff.txt");
@@ -43,12 +54,14 @@ int main(int argc, char *argv[])
     fs << pbuff[i] << endl;
   fs.close();
 
+  return 0; ///////////////////////////////////////////////////////////////////
+
   // Wrap the array and its 2d dimensions for julia.
   jl_value_t *array_type = jl_apply_array_type(jl_uint32_type, 1);
   jl_array_t *pbuff_jl = jl_ptr_to_array_1d(array_type, pbuff, sz, false);
 
-  jl_value_t *nrows_jl = jl_box_int64(img.rows);
-  jl_value_t *ncols_jl = jl_box_int64(img.cols);
+  jl_value_t *nrows_jl = jl_box_int64(nrows);
+  jl_value_t *ncols_jl = jl_box_int64(ncols);
 
   // Tell Julia not to trash our stuff.
   jl_value_t **args;
@@ -70,7 +83,19 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-void cvMat2Array(cv::Mat &img, unsigned int* pbuff)
+bool checkImageSizes(cv::Mat &img1, cv::Mat &img2)
+{
+  if (img1.rows != img2.rows || img1.cols != img2.cols)
+  {
+    cout << "Error: Image sizes do not match:" << endl;
+    cout << "  " << img1.rows << "x" << img1.cols << endl;
+    cout << "  " << img2.rows << "x" << img2.cols << endl;
+    return false;
+  }
+  return true;
+}
+
+void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff)
 {
   // Use 32 bit unsigned int to hold a pixel in ARGB format as follows:
   // from left to right,
@@ -82,21 +107,24 @@ void cvMat2Array(cv::Mat &img, unsigned int* pbuff)
   // To use this function, allocate a C++ buffer like so:
   // unsigned int* pbuff = new unsigned[img.rows*img.cols];
 
-  unsigned char *dat = (unsigned char*)(img.data);
-  int r=0, g=0, b=0, counter=0; // add int a=0 ?
-  int c = img.channels();
-  for (int i = 0; i < img.rows; i++)
-  {
-    for (int j = 0; j < img.cols; j++)
-    {
-      b = dat[img.step*i + c*j    ];
-      g = dat[img.step*i + c*j + 1];
-      r = dat[img.step*i + c*j + 2];
-      
-      // a = dat[img.step*i + c*j + 3];
-      // Or, assign a from a second depth image?
+  if (!checkImageSizes(bgr_img, dep_img))
+    return;
 
-      pbuff[counter++] = (r << 16) | (g << 8) | b;
+  unsigned char *cdat = (unsigned char*)(bgr_img.data);
+  unsigned char *ddat = (unsigned char*)(dep_img.data);
+  int r=0, g=0, b=0, d=0, counter=0;
+  int c = bgr_img.channels();
+  for (int i = 0; i < bgr_img.rows; i++)
+  {
+    for (int j = 0; j < bgr_img.cols; j++)
+    {
+      b = cdat[bgr_img.step*i + c*j    ];
+      g = cdat[bgr_img.step*i + c*j + 1];
+      r = cdat[bgr_img.step*i + c*j + 2];
+
+      d = ddat[dep_img.step*i + c*j];
+
+      pbuff[counter++] = (d << 24) | (r << 16) | (g << 8) | b;
     }
   }
 }
