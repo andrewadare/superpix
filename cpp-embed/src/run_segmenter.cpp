@@ -97,9 +97,9 @@ bool checkImageSizes(cv::Mat &img1, cv::Mat &img2)
 
 void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff)
 {
-  // Use 32 bit unsigned int to hold a pixel in ARGB format as follows:
+  // Use 32 bit unsigned int to hold a pixel in DRGB format as follows:
   // from left to right,
-  // the first 8 bits are for the alpha channel (currently unused)
+  // the first 8 bits are for the depth channel
   // the next 8 bits are for the red channel
   // the next 8 bits are for the green channel
   // the last 8 bits are for the blue channel
@@ -113,16 +113,18 @@ void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff)
   unsigned char *cdat = (unsigned char*)(bgr_img.data);
   unsigned char *ddat = (unsigned char*)(dep_img.data);
   int r=0, g=0, b=0, d=0, counter=0;
-  int c = bgr_img.channels();
+
+  int ncc = bgr_img.channels();
+  int ndc = dep_img.channels();
   for (int i = 0; i < bgr_img.rows; i++)
   {
     for (int j = 0; j < bgr_img.cols; j++)
     {
-      b = cdat[bgr_img.step*i + c*j    ];
-      g = cdat[bgr_img.step*i + c*j + 1];
-      r = cdat[bgr_img.step*i + c*j + 2];
+      b = cdat[bgr_img.step*i + ncc*j    ];
+      g = cdat[bgr_img.step*i + ncc*j + 1];
+      r = cdat[bgr_img.step*i + ncc*j + 2];
 
-      d = ddat[dep_img.step*i + c*j];
+      d = ddat[dep_img.step*i + ndc*j];
 
       pbuff[counter++] = (d << 24) | (r << 16) | (g << 8) | b;
     }
