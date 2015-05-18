@@ -54,8 +54,6 @@ int main(int argc, char *argv[])
     fs << pbuff[i] << endl;
   fs.close();
 
-  return 0; ///////////////////////////////////////////////////////////////////
-
   // Wrap the array and its 2d dimensions for julia.
   jl_value_t *array_type = jl_apply_array_type(jl_uint32_type, 1);
   jl_array_t *pbuff_jl = jl_ptr_to_array_1d(array_type, pbuff, sz, false);
@@ -71,7 +69,9 @@ int main(int argc, char *argv[])
   args[2] = ncols_jl;
 
   // Read Julia function definitions into memory
-  int ret = loadJuliaFunctions("/Users/adare/cv/mat2jl/src/segmenter.jl");
+  char jlfile[256];
+  sprintf(jlfile, "%s/repos/superpix/cpp-embed/src/segmenter.jl", getenv("HOME"));
+  int ret = loadJuliaFunctions(string(jlfile));
   if (ret != 0)
     return -1;
 
