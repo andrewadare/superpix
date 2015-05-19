@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
   if (ret != 0)
     return -1;
 
-  jl_function_t *f = jl_get_function(jl_current_module, "main");
+  jl_function_t *f = jl_get_function(jl_current_module, "segment_drgb");
 
   for (int i=0; i<10; i++)
   {
@@ -37,9 +37,6 @@ int main(int argc, char *argv[])
     sc >> rgbfile;
     sd << getenv("HOME") << "/kinect-data/clutter/depth_" << i << ".png";
     sd >> depfile;
-    // cout << rgbfile << endl;
-    // cout << depfile << endl; 
-    // continue;
 
     // Read image and get dimensions
     cv::Mat rgb_img_full = cv::imread(rgbfile);
