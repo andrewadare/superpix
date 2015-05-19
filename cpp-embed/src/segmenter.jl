@@ -80,6 +80,10 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
                         ((0,1), (0,1), (0,1))
                         )
 
+    for i in 1:length(seg_labels)
+        pbuff[i] = seg_labels[i]
+    end
+
     imwrite(grayim(seg_borders), "seg_borders.jpg")
     imwrite(graphcuts, "graphcuts.jpg")
     # imwrite(segs, "segs.jpg")
