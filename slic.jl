@@ -355,7 +355,119 @@ function adjacency_graph(labels::AbstractArray,
     lab_dists /= maximum(lab_dists)
     dep_dists /= maximum(dep_dists)
 
-    g, lab_dists + dep_dists, borders
+    g, 0.75*lab_dists + 0.25*dep_dists, borders
+end
+
+function merged_superpixels(labels::AbstractArray,
+                            nlabels::Integer,
+                            graph::Graph)
+    nr, nc = size(labels)
+    borders = zeros(nr, nc)
+
+    seglabels = zeros(Int, nr, nc)
+
+    g = Graph(nv(graph))
+    for v in vertices(graph)
+        if degree(g, v) > 0
+            add_vertex!(g, v)
+        end
+    end
+    for e in edges(graph)
+        if has_vertex(g, src(e)) && has_vertex(g, dst(e))
+            add_edge!(g,e)
+        end
+    end
+
+    # for s in vertices(g)
+    #     nv = out_neighbors(s)
+    #     for n in nv
+    #         push!(nv, out_neighbors(n))
+    #     end
+    # end
+
+    # visitor = LightGraphs.TopologicalSortVisitor(nv(g))
+    # cmap = zeros(Int, nv(g))
+    # for s in vertices(g)
+        # if cmap[s] == 0
+        #     traverse_graph(graph, DepthFirst(), s, visitor, vertexcolormap=cmap)
+            # traverse_graph(graph, DepthFirst(), s)
+        # end
+    # end
+
+    # # Connected components
+    # ccs = maximum_adjacency_visit(g, log=false)
+    # # println(length(ccs))
+
+    # a = zeros(Int,0)
+    # for i = 1:length(ccs)-1
+    #     if has_edge(g, ccs[i], ccs[i+1])
+    #         push!(a, ccs[i])
+    #     else
+    #         println(a)
+    #         a = zeros(Int,0)
+    #     end
+    # end
+
+    # Relative neighbor indices
+    i4 = [-1,  0,  1,  0]
+    j4 = [ 0, -1,  0,  1]
+
+    label = 0
+    for s in vertices(g)
+        vv = visited_vertices(g, DepthFirst(), s)           
+
+        if length(vv) > 2
+            label += 1
+            for v in vv
+                indices = find(labels .== v)
+                
+                for i in indices
+                    if seglabels[i] == 0
+                        seglabels[i] = label
+                    end
+                end
+            end
+        end
+
+        for v in vv
+            for nv in neighbors(g, v)
+                rem_edge!(g, v, nv)
+            end
+        end
+    end
+
+    for i = 1:nr
+        for j = 1:nc
+            for k = 1:4
+                if seglabels[i,j] == 0
+                    borders[i,j] = 0.5
+                end
+                ni, nj = i+i4[k], j+j4[k]
+
+                (1 <= ni <= nr) && (1 <= nj <= nc) || continue
+                seglabels[i,j] != seglabels[ni, nj] || continue
+
+                borders[i,j] = 1
+            end
+        end
+    end
+
+    # for i = 1:nr
+    #     for j = 1:nc
+    #         for k = 1:4
+    #             ni, nj = i+i4[k], j+j4[k]
+
+    #             (1 <= ni <= nr) && (1 <= nj <= nc) || continue
+    #             labels[i,j] != labels[ni, nj] || continue
+    #             !has_edge(g, labels[i,j], labels[ni, nj]) || continue
+    #             degree(g, labels[i,j]) > 0 && degree(g, labels[ni,nj]) > 0 || continue
+
+    #             borders[i,j] = 1
+    #         end
+    #     end
+    # end
+
+    seglabels, borders
 end
 
 function graph_image(g::Graph, centroids::AbstractArray, nr::Int, nc::Int)
