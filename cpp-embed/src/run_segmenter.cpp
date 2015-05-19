@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
   if (ret != 0)
     return -1;
 
-  jl_function_t *f = jl_get_function(jl_current_module, "main");
+  jl_function_t *f = jl_get_function(jl_current_module, "segment_drgb");
   jl_call(f, args, 3);
 
   JL_GC_POP();
