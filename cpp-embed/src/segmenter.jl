@@ -33,14 +33,12 @@ function preprocess_depth_array!(dep::AbstractArray)
     # imwrite(depth_img, "depth.jpg")
 end
 
-function cut_graph!(graph::Graph, edgewts::AbstractArray, thresh::FloatingPoint)
-    for e in edges(graph)
+function cut_graph!(g::Graph, edgewts::AbstractArray, thresh::FloatingPoint)
+    for e in edges(g)
         a, b = src(e), dst(e)
         wt = edgewts[a,b]
-        # thresh = 0.18
-        # flag = ""
         if wt > thresh 
-            rem_edge!(graph, e)
+            rem_edge!(g, e)
         end
     end
 end
@@ -63,7 +61,9 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
     centroids = cluster_centroids(labels, nlabels)
 
     println("Adjacency graph has $(nv(graph)) vertices and $(ne(graph)) edges.")
-    cut_graph!(graph, edgewts, 0.05)
+    cut_graph!(graph, edgewts, 0.02)
+
+    seg_labels, seg_borders = merged_superpixels(labels, nlabels, graph)
 
     centroid_img = zeros(labels)
     for c in 1:nlabels
@@ -75,12 +75,14 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
 
     graph_edges = graph_image(graph, centroids, nr, nc)
 
-    segs = Overlay((borders', graph_edges', centroid_img'), 
-                   (Color.RGB(0.2,0.2,0.2), Color.RGB(0,0.5,1), Color.RGB(1,1,0)),
-                   ((0,1), (0,1), (0,1))
-                   )
+    graphcuts = Overlay((borders', graph_edges', centroid_img'),
+                        (Color.RGB(0.2,0.2,0.2), Color.RGB(0,0.5,1), Color.RGB(1,1,0)),
+                        ((0,1), (0,1), (0,1))
+                        )
 
-    imwrite(segs, "segs.jpg")
+    imwrite(grayim(seg_borders), "seg_borders.jpg")
+    imwrite(graphcuts, "graphcuts.jpg")
+    # imwrite(segs, "segs.jpg")
 end
 
 function test()
