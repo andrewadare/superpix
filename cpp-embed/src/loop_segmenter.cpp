@@ -3,6 +3,7 @@
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/features2d/features2d.hpp"
 
 #include <julia.h>
 #include <stdio.h>
@@ -14,6 +15,8 @@ using namespace std;
 
 bool checkImageSizes(cv::Mat &img1, cv::Mat &img2);
 void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff);
+// void array2cvMat(unsigned int* pbuff, cv::Mat &img);
+void array2cvMat(unsigned int* pbuff, cv::Mat &img, vector<int> &labels);
 int loadJuliaFunctions(string filename);
 
 int main(int argc, char *argv[])
@@ -29,7 +32,7 @@ int main(int argc, char *argv[])
 
   jl_function_t *f = jl_get_function(jl_current_module, "segment_drgb");
 
-  for (int i=0; i<10; i++)
+  for (int i=57; i<58; i++)
   {
     stringstream sc, sd;
     string rgbfile = "", depfile = "";
@@ -77,6 +80,39 @@ int main(int argc, char *argv[])
     args[2] = ncols_jl;
 
     jl_call(f, args, 3);
+
+    cv::Mat label_gray;
+    cvtColor(rgb_img, label_gray, CV_BGR2GRAY);
+
+//     vector<int> labels;
+//     array2cvMat(pbuff, label_gray, labels);
+
+//     // Setup SimpleBlobDetector parameters.
+//     std::vector<cv::KeyPoint> keypoints;
+//     cv::SimpleBlobDetector::Params params;
+//     params.minThreshold = 1;
+//     params.maxThreshold = 100000;
+
+//     params.filterByArea = false;
+//     params.filterByCircularity = false;
+//     params.filterByConvexity = false;
+//     params.filterByInertia = false;
+//     params.thresholdStep = 1;
+
+// #if CV_MAJOR_VERSION < 3
+//     cv::SimpleBlobDetector detector(params);
+//     detector.detect(label_gray, keypoints);
+// #else
+//     cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
+//     detector->detect(label_gray, keypoints);
+// #endif
+//     cv::drawKeypoints(label_gray, keypoints, label_gray,
+//                       cv::Scalar(0,255,0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+
+    cv::namedWindow("segments", cv::WINDOW_AUTOSIZE);
+    cv::imshow("segments", label_gray);
+    cv::waitKey(0);
+    // cv::imwrite(savepath, img);
 
     if (pbuff) delete [] pbuff;
 
@@ -134,6 +170,30 @@ void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff)
       pbuff[counter++] = (d << 24) | (r << 16) | (g << 8) | b;
     }
   }
+}
+
+// Overwrite img's data buffer with data from pbuff.
+void array2cvMat(unsigned int* pbuff, cv::Mat &img, vector<int> &labels)
+{
+  int counter = 0;
+  int c = img.channels();
+  cout << c << " channels." << endl;
+  unsigned char *dat = (unsigned char*)(img.data);
+  double maxlabel=-1;
+  for (int i = 0; i < img.rows; i++)
+    for (int j = 0; j < img.cols; j++)
+    {
+      labels.push_back(pbuff[counter]);
+
+      if (pbuff[counter] > maxlabel)
+        maxlabel = pbuff[counter];
+
+      dat[img.step*i + c*j    ] = (pbuff[counter]); //) & 0xFF;
+      // dat[img.step*i + c*j + 1] = (pbuff[counter]); // >>  8) & 0xFF;
+      // dat[img.step*i + c*j + 2] = (pbuff[counter]); // >> 16) & 0xFF;
+      counter++;
+    }
+  // img = 255./maxlabel*img;
 }
 
 // This function is intended to read in a julia source file containing
