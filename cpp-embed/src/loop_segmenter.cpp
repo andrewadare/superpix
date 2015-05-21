@@ -18,10 +18,13 @@ void cvMat2Array(cv::Mat &bgr_img, cv::Mat &dep_img, unsigned int* pbuff);
 // void array2cvMat(unsigned int* pbuff, cv::Mat &img);
 void array2cvMat(unsigned int* pbuff, cv::Mat &img, vector<int> &labels);
 int loadJuliaFunctions(string filename);
+std::string runShellCmd(std::string cmd);
 
 int main(int argc, char *argv[])
 {
   jl_init(JULIA_INIT_DIR);
+
+  stringstream ss;
 
   // Read Julia function definitions into memory
   char jlfile[256];
@@ -30,16 +33,18 @@ int main(int argc, char *argv[])
   if (ret != 0)
     return -1;
 
-  jl_function_t *f = jl_get_function(jl_current_module, "segment_drgb");
 
-  for (int i=57; i<58; i++)
+  for (int i=0; i<274; i++)
   {
-    stringstream sc, sd;
     string rgbfile = "", depfile = "";
-    sc << getenv("HOME") << "/kinect-data/clutter/color_" << i << ".jpg";
-    sc >> rgbfile;
-    sd << getenv("HOME") << "/kinect-data/clutter/depth_" << i << ".png";
-    sd >> depfile;
+
+    ss.str(""); ss.clear();
+    ss << getenv("HOME") << "/kinect-data/clutter/color_" << i << ".jpg";
+    ss >> rgbfile;
+
+    ss.str(""); ss.clear();
+    ss << getenv("HOME") << "/kinect-data/clutter/depth_" << i << ".png";
+    ss >> depfile;
 
     // Read image and get dimensions
     cv::Mat rgb_img_full = cv::imread(rgbfile);
@@ -79,39 +84,42 @@ int main(int argc, char *argv[])
     args[1] = nrows_jl;
     args[2] = ncols_jl;
 
+    jl_function_t *f = jl_get_function(jl_current_module, "segment_drgb");
     jl_call(f, args, 3);
 
-    cv::Mat label_gray;
-    cvtColor(rgb_img, label_gray, CV_BGR2GRAY);
+    // runShellCmd("sleep 1");
 
-    vector<int> labels;
-    array2cvMat(pbuff, label_gray, labels);
+    ss.str(""); ss.clear();
+    ss << "mv /Users/adare/repos/superpix/cpp-embed/imgs/input_img.jpg "
+       << "/Users/adare/repos/superpix/cpp-embed/imgs/input_img_" << i << ".jpg";
+    runShellCmd(ss.str());
 
-//     // Setup SimpleBlobDetector parameters.
-//     std::vector<cv::KeyPoint> keypoints;
-//     cv::SimpleBlobDetector::Params params;
-//     params.minThreshold = 1;
-//     params.maxThreshold = 100000;
+    ss.str(""); ss.clear();
+    ss << "mv /Users/adare/repos/superpix/cpp-embed/imgs/color_superpix.jpg "
+       << "/Users/adare/repos/superpix/cpp-embed/imgs/color_superpix_" << i << ".jpg";
+    runShellCmd(ss.str());
 
-//     params.filterByArea = false;
-//     params.filterByCircularity = false;
-//     params.filterByConvexity = false;
-//     params.filterByInertia = false;
-//     params.thresholdStep = 1;
+    ss.str(""); ss.clear();
+    ss << "mv /Users/adare/repos/superpix/cpp-embed/imgs/color_segments.jpg "
+       << "/Users/adare/repos/superpix/cpp-embed/imgs/color_segments_" << i << ".jpg";
+    runShellCmd(ss.str());
 
-// #if CV_MAJOR_VERSION < 3
-//     cv::SimpleBlobDetector detector(params);
-//     detector.detect(label_gray, keypoints);
-// #else
-//     cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
-//     detector->detect(label_gray, keypoints);
-// #endif
-//     cv::drawKeypoints(label_gray, keypoints, label_gray,
-//                       cv::Scalar(0,255,0), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+    ss.str(""); ss.clear();
+    ss << "mv /Users/adare/repos/superpix/cpp-embed/imgs/seg_borders.jpg "
+       << "/Users/adare/repos/superpix/cpp-embed/imgs/seg_borders_" << i << ".jpg";
+    runShellCmd(ss.str());
 
-    cv::namedWindow("segments", cv::WINDOW_AUTOSIZE);
-    cv::imshow("segments", label_gray);
-    cv::waitKey(0);
+
+    // cv::Mat label_gray;
+    // cvtColor(rgb_img, label_gray, CV_BGR2GRAY);
+    // vector<int> labels;
+    // array2cvMat(pbuff, label_gray, labels);
+
+
+
+    // cv::namedWindow("segments", cv::WINDOW_AUTOSIZE);
+    // cv::imshow("segments", label_gray);
+    // cv::waitKey(0);
     // cv::imwrite(savepath, img);
 
     if (pbuff) delete [] pbuff;
@@ -221,3 +229,19 @@ int loadJuliaFunctions(string filename)
   }
   return 0;
 }
+
+std::string runShellCmd(std::string cmd)
+{
+  FILE* pipe = popen(cmd.c_str(), "r");
+  if (!pipe) return "ERROR";
+  char buffer[256];
+  std::string result = "";
+  while (!feof(pipe))
+  {
+    if (fgets(buffer, 128, pipe) != NULL)
+      result += buffer;
+  }
+  pclose(pipe);
+  return result;
+}
+
