@@ -84,8 +84,8 @@ int main(int argc, char *argv[])
     cv::Mat label_gray;
     cvtColor(rgb_img, label_gray, CV_BGR2GRAY);
 
-//     vector<int> labels;
-//     array2cvMat(pbuff, label_gray, labels);
+    vector<int> labels;
+    array2cvMat(pbuff, label_gray, labels);
 
 //     // Setup SimpleBlobDetector parameters.
 //     std::vector<cv::KeyPoint> keypoints;
