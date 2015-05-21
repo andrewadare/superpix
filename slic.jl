@@ -368,7 +368,7 @@ function merged_superpixels(labels::AbstractArray, graph::Graph)
         end
     end
 
-    seglabels, length(unique(seglabels))
+    seglabels, label
 end
 
 function segment_borders(labels::AbstractArray, img::AbstractArray)
@@ -379,18 +379,27 @@ function segment_borders(labels::AbstractArray, img::AbstractArray)
     j4 = [ 0, -1,  0,  1]
 
     borders = similar(img)
+    black = convert(eltype(img), Color.RGB(0,0,0))
+
+    for i = 1:nr
+        for j = 1:nc
+            borders[i,j] = black
+        end
+    end
+
     for i = 1:nr
         for j = 1:nc
             for k = 1:4
-                if labels[i,j] == 0
-                    borders[i,j] = convert(eltype(img), Color.RGB(0,0,0))
-                end
                 ni, nj = i+i4[k], j+j4[k]
 
                 (1 <= ni <= nr) && (1 <= nj <= nc) || continue
-                labels[i,j] != labels[ni, nj] || continue
 
-                borders[i,j] = img[i,j]
+                l, n = labels[i,j], labels[ni,nj]
+
+                if l != n && l > 0
+                    borders[i,j] = img[i,j]
+                end
+
             end
         end
     end

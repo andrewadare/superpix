@@ -85,10 +85,11 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
                         ((0,1), (0,1), (0,1))
                         )
 
-    for i in 1:length(seg_labels)
-        pbuff[i] = seg_labels[i]
-    end
+    # for i in 1:length(seg_labels)
+    #     pbuff[i] = seg_labels[i]
+    # end
 
+    imwrite(convert(Image{Color.RGB}, imlab), "../imgs/input_img.jpg")
     imwrite(convert(Image{Color.RGB}, color_superpix), "../imgs/color_superpix.jpg")
     imwrite(grayim(depth_superpix), "../imgs/depth_superpix.jpg")
     imwrite(convert(Image{Color.RGB}, color_segments), "../imgs/color_segments.jpg")
