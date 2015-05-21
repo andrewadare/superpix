@@ -299,53 +299,22 @@ function adjacency_graph(labels::AbstractArray,
         for j = 1:nc
             for k = 1:4
                 ni, nj = i+i4[k], j+j4[k]
-                if (1 <= ni <= nr) && (1 <= nj <= nc)
-                    if labels[i,j] != labels[ni, nj]
-                        borders[i,j] = 1
-                        if !has_edge(g, labels[i,j], labels[ni, nj])
-                            a, b = labels[i,j], labels[ni, nj]
-                            ca, cb = lab_means[a], lab_means[b]
+                (1 <= ni <= nr) && (1 <= nj <= nc) || continue
+                labels[i,j] != labels[ni, nj] || continue
+                borders[i,j] = 1
+                !has_edge(g, labels[i,j], labels[ni, nj]) || continue
+                a, b = labels[i,j], labels[ni, nj]
+                ca, cb = lab_means[a], lab_means[b]
                             
-                            rgb = convert(Color.RGB, ca)
-                            # if Color.colordiff(rgb, Color.RGB(0.1, 0.1, 0.1)) < 10
+                rgb = convert(Color.RGB, ca)
 
-                            # rg, rb = atan2(rgb.r, rgb.g), atan2(rgb.r, rgb.b)
-                            # if (abs(rg-pi/4) < 0.01) && (abs(rb-pi/4) < 0.01)
-                            #     continue
-                            # end
-
-                            # println(rgb)
-                            # if abs(rgb.r-rgb.g)/(rgb.r+rgb.g) < 
-                            #     continue
-                            # end
-                            # if rgb.r < 0.3
-                            #     continue
-                            # end
-
-                            # ca.l > 30 || continue # Dark (conveyor belt)
-                            # ca.a > -3 || continue # Green (conveyor edges)
-
-                            # Unfortunately doesn't work on metal
-                            # is_dark_gray = false
-                            # for q=0:4
-                            #     c = Color.RGB(0.1*q, 0.1*q, 0.1*q)
-                            #     if Color.colordiff(rgb, c) < 12
-                            #         is_dark_gray = true
-                            #     end
-                            # end
-
-
-                            add_edge!(g, a, b)
-                            # Assign edge weights based on color and depth
-                            # Color distance
-                            cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
-                            lab_dists[a,b] = dot(cdiff, cdiff)
-                            # Depth distance
-                            dep_dists[a,b] = abs(dep_means[a] - dep_means[b])
-
-                        end
-                    end
-                end
+                add_edge!(g, a, b)
+                # Assign edge weights based on color and depth
+                # Color distance
+                cdiff = [ca.l - cb.l, ca.a - cb.a, ca.b - cb.b]
+                lab_dists[a,b] = dot(cdiff, cdiff)
+                # Depth distance
+                dep_dists[a,b] = abs(dep_means[a] - dep_means[b])
             end
         end
     end
@@ -355,15 +324,12 @@ function adjacency_graph(labels::AbstractArray,
     lab_dists /= maximum(lab_dists)
     dep_dists /= maximum(dep_dists)
 
-    g, 0.75*lab_dists + 0.25*dep_dists, borders
+    # g, 0.75*lab_dists + 0.25*dep_dists, borders
+    g, 1.0*lab_dists + 0.0*dep_dists, borders
 end
 
-function merged_superpixels(labels::AbstractArray,
-                            nlabels::Integer,
-                            graph::Graph)
+function merged_superpixels(labels::AbstractArray, graph::Graph)
     nr, nc = size(labels)
-    borders = zeros(nr, nc)
-
     seglabels = zeros(Int, nr, nc)
 
     g = Graph(nv(graph))
@@ -377,40 +343,6 @@ function merged_superpixels(labels::AbstractArray,
             add_edge!(g,e)
         end
     end
-
-    # for s in vertices(g)
-    #     nv = out_neighbors(s)
-    #     for n in nv
-    #         push!(nv, out_neighbors(n))
-    #     end
-    # end
-
-    # visitor = LightGraphs.TopologicalSortVisitor(nv(g))
-    # cmap = zeros(Int, nv(g))
-    # for s in vertices(g)
-        # if cmap[s] == 0
-        #     traverse_graph(graph, DepthFirst(), s, visitor, vertexcolormap=cmap)
-            # traverse_graph(graph, DepthFirst(), s)
-        # end
-    # end
-
-    # # Connected components
-    # ccs = maximum_adjacency_visit(g, log=false)
-    # # println(length(ccs))
-
-    # a = zeros(Int,0)
-    # for i = 1:length(ccs)-1
-    #     if has_edge(g, ccs[i], ccs[i+1])
-    #         push!(a, ccs[i])
-    #     else
-    #         println(a)
-    #         a = zeros(Int,0)
-    #     end
-    # end
-
-    # Relative neighbor indices
-    i4 = [-1,  0,  1,  0]
-    j4 = [ 0, -1,  0,  1]
 
     label = 0
     for s in vertices(g)
@@ -436,38 +368,34 @@ function merged_superpixels(labels::AbstractArray,
         end
     end
 
+    seglabels
+end
+
+function segment_borders(labels::AbstractArray, img::AbstractArray)
+
+    nr, nc = size(img)
+    # Relative neighbor indices
+    i4 = [-1,  0,  1,  0]
+    j4 = [ 0, -1,  0,  1]
+
+    borders = similar(img)
     for i = 1:nr
         for j = 1:nc
             for k = 1:4
-                if seglabels[i,j] == 0
-                    borders[i,j] = 0.5
-                end
+                # if labels[i,j] == 0
+                #     borders[i,j] = 0.5
+                # end
                 ni, nj = i+i4[k], j+j4[k]
 
                 (1 <= ni <= nr) && (1 <= nj <= nc) || continue
-                seglabels[i,j] != seglabels[ni, nj] || continue
+                labels[i,j] != labels[ni, nj] || continue
 
-                borders[i,j] = 1
+                borders[i,j] = img[i,j]
             end
         end
     end
 
-    # for i = 1:nr
-    #     for j = 1:nc
-    #         for k = 1:4
-    #             ni, nj = i+i4[k], j+j4[k]
-
-    #             (1 <= ni <= nr) && (1 <= nj <= nc) || continue
-    #             labels[i,j] != labels[ni, nj] || continue
-    #             !has_edge(g, labels[i,j], labels[ni, nj]) || continue
-    #             degree(g, labels[i,j]) > 0 && degree(g, labels[ni,nj]) > 0 || continue
-
-    #             borders[i,j] = 1
-    #         end
-    #     end
-    # end
-
-    seglabels, borders
+    borders
 end
 
 function graph_image(g::Graph, centroids::AbstractArray, nr::Int, nc::Int)
