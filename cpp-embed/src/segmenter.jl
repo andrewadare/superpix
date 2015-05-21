@@ -63,10 +63,10 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
     println("Adjacency graph has $(nv(graph)) vertices and $(ne(graph)) edges.")
     cut_graph!(graph, edgewts, 0.016)
 
-    seg_labels = merged_superpixels(labels, graph)
+    seg_labels, nsegments = merged_superpixels(labels, graph)
 
-    seg_lab_means, color_segments = color_means(imlab, seg_labels, nlabels)
-    seg_dep_means, depth_segments = color_means(dep, seg_labels, nlabels)
+    seg_lab_means, color_segments = color_means(imlab, seg_labels, nsegments)
+    seg_dep_means, depth_segments = color_means(dep, seg_labels, nsegments)
 
     seg_borders = segment_borders(seg_labels, color_segments)
 
