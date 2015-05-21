@@ -61,9 +61,14 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
     centroids = cluster_centroids(labels, nlabels)
 
     println("Adjacency graph has $(nv(graph)) vertices and $(ne(graph)) edges.")
-    cut_graph!(graph, edgewts, 0.02)
+    cut_graph!(graph, edgewts, 0.016)
 
-    seg_labels, seg_borders = merged_superpixels(labels, nlabels, graph)
+    seg_labels = merged_superpixels(labels, graph)
+
+    seg_lab_means, color_segments = color_means(imlab, seg_labels, nlabels)
+    seg_dep_means, depth_segments = color_means(dep, seg_labels, nlabels)
+
+    seg_borders = segment_borders(seg_labels, color_segments)
 
     centroid_img = zeros(labels)
     for c in 1:nlabels
@@ -84,8 +89,13 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
         pbuff[i] = seg_labels[i]
     end
 
-    imwrite(grayim(seg_borders), "seg_borders.jpg")
-    imwrite(graphcuts, "graphcuts.jpg")
+    imwrite(convert(Image{Color.RGB}, color_superpix), "../imgs/color_superpix.jpg")
+    imwrite(grayim(depth_superpix), "../imgs/depth_superpix.jpg")
+    imwrite(convert(Image{Color.RGB}, color_segments), "../imgs/color_segments.jpg")
+    imwrite(grayim(depth_segments), "../imgs/depth_segments.jpg")
+
+    imwrite(convert(Image{Color.RGB}, seg_borders), "../imgs/seg_borders.jpg")
+    imwrite(graphcuts, "../imgs/graphcuts.jpg")
     # imwrite(segs, "segs.jpg")
 end
 
