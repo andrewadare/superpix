@@ -34,27 +34,41 @@ int main(int argc, char *argv[])
     return -1;
 
 
-  for (int i=0; i<274; i++)
+  for (int i=1; i<2; i++)
   {
     string rgbfile = "", depfile = "";
 
     ss.str(""); ss.clear();
-    ss << getenv("HOME") << "/kinect-data/clutter/color_" << i << ".jpg";
+    ss << getenv("HOME") << "/repos/superpix/cpp-embed/imgs/color_" <<i<<".jpg";
+    // ss << getenv("HOME") << "/kinect-data/clutter/color_" << i << ".jpg";
     ss >> rgbfile;
 
     ss.str(""); ss.clear();
-    ss << getenv("HOME") << "/kinect-data/clutter/depth_" << i << ".png";
+    ss << getenv("HOME") << "/repos/superpix/cpp-embed/imgs/depth_" <<i<<".png";
+    // ss << getenv("HOME") << "/kinect-data/clutter/depth_" << i << ".png";
     ss >> depfile;
 
     // Read image and get dimensions
     cv::Mat rgb_img_full = cv::imread(rgbfile);
-    cv::Mat dep_img_full = cv::imread(depfile);
+    cv::Mat dep_img_full = cv::imread(depfile, CV_LOAD_IMAGE_ANYDEPTH);
 
     // Crop images
     int tlx = 100, tly = 90, w = 700, h = 290;
     cv::Rect roi(tlx, tly, w, h);
     cv::Mat rgb_img(rgb_img_full, roi);
     cv::Mat dep_img(dep_img_full, roi);
+
+    double depthMin, depthMax;
+    cv::minMaxLoc(dep_img, &depthMin, &depthMax);
+
+    depthMin = 10000;
+    dep_img = max(dep_img, depthMin) - depthMin;
+    dep_img = (65000.0/(depthMax - depthMin)) * dep_img;
+
+    dep_img.convertTo(dep_img, CV_8U, 0.00390625); // 1/256
+    // cv::namedWindow("dep_img");
+    // cv::imshow("dep_img", dep_img);
+    // cv::waitKey(0);
 
     if (!checkImageSizes(rgb_img, dep_img))
       return -1;
@@ -70,6 +84,15 @@ int main(int argc, char *argv[])
     // Copy image data into an array
     unsigned int* pbuff = new unsigned[sz];
     cvMat2Array(rgb_img, dep_img, pbuff);
+
+    if (true)
+    {
+      // Write pbuff to a text file
+      ofstream fs("pbuff.txt");
+      for (int i = 0; i < sz; i++)
+        fs << pbuff[i] << endl;
+      fs.close();
+    }
 
     // Wrap the array and its 2d dimensions for julia.
     jl_value_t *array_type = jl_apply_array_type(jl_uint32_type, 1);
@@ -87,10 +110,8 @@ int main(int argc, char *argv[])
     jl_function_t *f = jl_get_function(jl_current_module, "segment_drgb");
     jl_call(f, args, 3);
 
-    // runShellCmd("sleep 1");
-
     ss.str(""); ss.clear();
-    ss << "mv /Users/adare/repos/superpix/cpp-embed/imgs/input_img.jpg "
+    ss << "mv /Users/adare/repos/superpix/cpp-embed/imgs/rgb_input_img.jpg "
        << "/Users/adare/repos/superpix/cpp-embed/imgs/input_img_" << i << ".jpg";
     runShellCmd(ss.str());
 
