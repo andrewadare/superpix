@@ -324,8 +324,7 @@ function adjacency_graph(labels::AbstractArray,
     lab_dists /= maximum(lab_dists)
     dep_dists /= maximum(dep_dists)
 
-    # g, 0.75*lab_dists + 0.25*dep_dists, borders
-    g, 1.0*lab_dists + 0.0*dep_dists, borders
+    g, 0.25*lab_dists + 0.75*dep_dists, borders
 end
 
 function merged_superpixels(labels::AbstractArray, graph::Graph)
@@ -490,7 +489,7 @@ function color_means(img, labels, nlabels)
         segment = img[indices]
         mu = generalized_mean(segment)
         # println(mu)
-        # isnan(mu) && continue
+
         d[label] = mu
         superpx_mean_img[indices] = mu
     end
