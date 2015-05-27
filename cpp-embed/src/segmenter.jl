@@ -61,7 +61,8 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
     centroids = cluster_centroids(labels, nlabels)
 
     println("Adjacency graph has $(nv(graph)) vertices and $(ne(graph)) edges.")
-    cut_graph!(graph, edgewts, 0.016)
+    cut_graph!(graph, edgewts, 0.02)
+    # cut_graph!(graph, edgewts, 0.016)
 
     seg_labels, nsegments = merged_superpixels(labels, graph)
 
@@ -91,14 +92,14 @@ function segment_drgb(pbuff::Array{UInt32, 1}, nrows::Integer, ncols::Integer)
 
     dir = joinpath(homedir(), "repos/superpix/cpp-embed/imgs")
 
-    imwrite(convert(Image{Color.RGB}, imlab), "$dir/input_img.jpg")
+    imwrite(convert(Image{Color.RGB}, imlab),          "$dir/rgb_input_img.jpg")
+    imwrite(grayim(dep),                               "$dir/dep_input_img.jpg")
     imwrite(convert(Image{Color.RGB}, color_superpix), "$dir/color_superpix.jpg")
-    imwrite(grayim(depth_superpix), "$dir/depth_superpix.jpg")
+    imwrite(grayim(depth_superpix),                    "$dir/depth_superpix.jpg")
     imwrite(convert(Image{Color.RGB}, color_segments), "$dir/color_segments.jpg")
-    imwrite(grayim(depth_segments), "$dir/depth_segments.jpg")
-
-    imwrite(convert(Image{Color.RGB}, seg_borders), "$dir/seg_borders.jpg")
-    imwrite(graphcuts, "$dir/graphcuts.jpg")
+    imwrite(grayim(depth_segments),                    "$dir/depth_segments.jpg")
+    imwrite(convert(Image{Color.RGB}, seg_borders),    "$dir/seg_borders.jpg")
+    imwrite(graphcuts,                                 "$dir/graphcuts.jpg")
     # imwrite(segs, "segs.jpg")
 end
 
