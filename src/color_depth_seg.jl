@@ -26,6 +26,8 @@ function seg(idx::Integer)
     col_range = 151:750
     k = 1000                # Number of requested superpixels
     m = 10                  # Cluster compactness parameter
+    w = 0.5                 # Depth vs. color weighting for RAG edges
+    t = 0.07                # Graph cut threshold
 
     imlab = lab_image("../input/color_$idx.jpg", row_range, col_range)
     dep = depth_image("../input/depth_$idx.png", row_range, col_range)
@@ -46,8 +48,8 @@ function seg(idx::Integer)
 
     # Compute a regional adjacency graph from superpixels, then cut it
     graph, edgewts, borders = 
-    adjacency_graph(sp_labels, nsp, lab_means, dep_means, depth_weight=0.5)
-    graph = cut_graph(graph, edgewts, 0.07)
+    adjacency_graph(sp_labels, nsp, lab_means, dep_means, depth_weight=w)
+    graph = cut_graph(graph, edgewts, t)
 
     # Make an image of the graph including superpixel centroids
     graph_edges = graph_image(graph, sp_centroids, nr, nc)
