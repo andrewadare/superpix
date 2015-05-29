@@ -5,38 +5,19 @@ using Reactive, Interact
 
 include("grids.jl")
 include("means.jl")
-include("prep.jl")
+include("io.jl")
 include("rag.jl")
 include("recombine.jl")
 include("slic.jl")
 include("vis.jl")
+include("gradients.jl")
 
-# TODO: create a gradients.jl file and move these there.
 
-# Compute depth image gradients
-function depth_image_grad(dep::AbstractArray)
-    gx, gy = imgradients(dep, "ando5")
-    depgrad = magnitude(data(gx),data(gy))
-
-    # Scale gradient magnitudes to range from 0 to 1
-    mingrad = minimum(depgrad[depgrad .> 0])
-    depgrad = clamp(depgrad, mingrad, maximum(depgrad)) - mingrad
-    depgrad /= maximum(depgrad)
-    depgrad
-end
-
-# Compute color image gradient (mean over L,a,b magnitudes)
-function color_image_grad(imlab::AbstractArray)
-    gx, gy = imgradients(imlab, "ando5")
-    gradmag = magnitude(data(gx),data(gy))
-    gradmean = reshape(mean(gradmag, colordim(gx)), tuple(size_spatial(gx)...))
-
-    # Scale gradient magnitudes to range from 0 to 1
-    mingrad = minimum(gradmean[gradmean .> 0])
-    gradmean = clamp(gradmean, mingrad, maximum(gradmean)) - mingrad
-    gradmean /= maximum(gradmean)
-    gradmean
-end
+# Run over a pair of images named e.g. "../input/color_1.jpg" and 
+# "../input/depth_1.png". The results will be written to ../output.
+#
+# Example usage in julia REPL:
+# julia> include("color_depth_seg.jl"); @time for i = 100:101 @time seg(i) end
 
 function seg(idx::Integer)
     println("Segmenting image $idx")
@@ -46,16 +27,14 @@ function seg(idx::Integer)
     k = 1000                # Number of requested superpixels
     m = 10                  # Cluster compactness parameter
 
-    imlab = lab_image("input/color_$idx.jpg", row_range, col_range)
-    dep = depth_image("input/depth_$idx.png", row_range, col_range)
+    imlab = lab_image("../input/color_$idx.jpg", row_range, col_range)
+    dep = depth_image("../input/depth_$idx.png", row_range, col_range)
  
-    # depgrad currently not used. 
-    # TODO: Take the "or" of depgrad and labgrad for input to adjusted_grid.
-    # depgrad = depth_image_grad(dep)
+    depgrad = depth_image_grad(dep)
     labgrad = color_image_grad(imlab)
 
     nr, nc = size(imlab)
-    seeds = adjusted_grid(hexgrid(nr, nc, k), labgrad)
+    seeds = adjusted_grid(hexgrid(nr, nc, k), depgrad+labgrad)
 
     # Do superpixel segmentation
     sp_labels, nsp = slic(imlab, seeds, k, m, niter=5)
