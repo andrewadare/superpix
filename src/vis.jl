@@ -78,12 +78,7 @@ function segment_overlay(labels::AbstractArray,
 
     newimg = copy(img)
     black = convert(eltype(img), Color.RGB(0,0,0))
-
-    # for i = 1:nr
-    #     for j = 1:nc
-    #         borders[i,j] = black
-    #     end
-    # end
+    red   = convert(eltype(img), Color.RGB(1,0,0))
 
     for i = 1:nr
         for j = 1:nc
@@ -95,28 +90,28 @@ function segment_overlay(labels::AbstractArray,
                 l, n = labels[i,j], labels[ni,nj]
 
                 if l != n && l > 0
-                    newimg[i,j] = black #border_colors[i,j]
+                    newimg[i,j]   = black
+                    newimg[ni,nj] = black
                 end
 
             end
         end
     end
 
-    # Put a crosshair over the segment centroid
+    # Put a crosshair on each segment centroid
     for i = 1:size(centroids, 1)
         r,c = centroids[i,:]
         if r > 0 && c > 0
             labels[r,c] > 0 || continue
             newimg[r,c] = black
+
+            # Color 3 pixels in each leg of the "+" around r,c
             for k = 1:4
-                ni, nj = r+i4[k], c+j4[k]
-                (1 <= ni <= nr) && (1 <= nj <= nc) || continue
-                newimg[ni,nj] = black
-
-                ni, nj = r+2*i4[k], c+2*j4[k]
-                (1 <= ni <= nr) && (1 <= nj <= nc) || continue
-                newimg[ni,nj] = black
-
+                for q = 1:3
+                    ni, nj = r + q*i4[k], c + q*j4[k]
+                    (1 <= ni <= nr) && (1 <= nj <= nc) || continue
+                    newimg[ni,nj] = red
+                end
             end
 
         end
