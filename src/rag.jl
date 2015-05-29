@@ -52,6 +52,31 @@ function adjacency_graph(labels::AbstractArray,
     # g, 0.25*lab_dists + 0.75*dep_dists, borders
 end
 
+# Compute the integrated intensity of image gradient magnitude between nodes
+# and return in a sparse matrix.
+function grad_weights(g::Graph, centroids::AbstractArray, grad_img::AbstractArray)
+    nr, nc = size(grad_img)
+    wts = spzeros(Float64, nv(g), nv(g))
+    for e in edges(g)
+        a, b = src(e), dst(e)
+        r1, c1 = centroids[a, 1], centroids[a, 2]
+        r2, c2 = centroids[b, 1], centroids[b, 2]
+        if (1 <= r1 <= nr) && (1 <= c1 <= nc) && (1 <= r2 <= nr) && (1 <= c2 <= nc)
+            dist = hypot(r2-r1, c2-c1)
+            theta = atan2(r2-r1, c2-c1)
+            i, d = 0, 0
+            while d < dist
+                dr = i*sin(theta)
+                dc = i*cos(theta)
+                wts[a,b] += grad_img[round(Int, r1+dr), round(Int, c1+dc)]
+                d = hypot(dr, dc)
+                i += 1
+            end
+        end
+    end
+    wts
+end
+
 function cut_graph(g::Graph, edgewts::AbstractArray, thresh::FloatingPoint)
     g2 = Graph(nv(g))
     for e in edges(g)
