@@ -173,41 +173,7 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     # Shift grid points slightly away from edges
     centers = adjusted_grid(grid, grad2)
 
-    slic(img, centers, k, m, niter=5)
-
-    # nclusters = size(centers, 1)
-
-    # # Cluster labels for each pixel
-    # labels = zeros(Int, nr, nc)
-    
-    # # Distances from pixels to cluster centers, initialized to ∞
-    # d = typemax(Float64)*ones(Float64, nr, nc)
-
-    # print("Before loop...")
-    # toc()
-
-    # for iter = 1:5
-
-    #     d *= typemax(Float64)
-
-    #     tic()
-    #     update_distances!(img, labels, centers, d, k, m)
-    #     print("Dist calcs $iter...")
-    #     toc()
-
-    #     # TODO: this could go in update_centroids() (?)
-    #     #     # maxlab[n] = maximum(color_d2[rows,cols]) # slow
-    #     tic()
-    #     update_centroids!(labels, centers)
-    #     print("Cluster repositioning $iter...")
-    #     toc()
-    # end
-    
-    # # Fix any disconnected pixels and merge small clusters to neighbors
-    # min_cluster_size = round(Int, 0.5*nr*nc/k)
-    # newlabels, nlabels = reconnect(labels, min_cluster_size)
-
-    # newlabels, nlabels
+    newlabels, nlabels = slic(img, centers, k, m, niter=5)
 end
 
 function slic(img::AbstractArray, 
@@ -228,17 +194,8 @@ function slic(img::AbstractArray,
 
         d *= typemax(Float64)
 
-        tic()
         update_distances!(img, labels, seeds, d, k, m)
-        print("Dist calcs $iter...")
-        toc()
-
-        # TODO: this could go in update_centroids() (?)
-        #     # maxlab[n] = maximum(color_d2[rows,cols]) # slow
-        tic()
         update_centroids!(labels, seeds)
-        print("Cluster repositioning $iter...")
-        toc()
     end
     
     # Fix any disconnected pixels and merge small clusters to neighbors

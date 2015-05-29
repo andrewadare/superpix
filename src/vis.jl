@@ -1,5 +1,7 @@
 function graph_image(g::Graph, centroids::AbstractArray, nr::Int, nc::Int)
     img = zeros(nr, nc)
+
+    # Draw a line for each graph edge
     for e in edges(g)
         r1, c1 = centroids[src(e), 1], centroids[src(e), 2]
         r2, c2 = centroids[dst(e), 1], centroids[dst(e), 2]
@@ -16,6 +18,15 @@ function graph_image(g::Graph, centroids::AbstractArray, nr::Int, nc::Int)
             end
         end
     end
+
+    # Make a 1-pixel dot at each node
+    for c in 1:size(centroids, 1)
+        row, col = centroids[c, 1], centroids[c, 2]
+        if (1 <= row <= nr) && (1 <= col <= nc)
+            img[row, col] = 1
+        end
+    end
+
     img
 end
 
@@ -91,9 +102,11 @@ function segment_overlay(labels::AbstractArray,
         end
     end
 
+    # Put a crosshair over the segment centroid
     for i = 1:size(centroids, 1)
         r,c = centroids[i,:]
-        if r > 0 && c > 0 
+        if r > 0 && c > 0
+            labels[r,c] > 0 || continue
             newimg[r,c] = black
             for k = 1:4
                 ni, nj = r+i4[k], c+j4[k]
