@@ -1,5 +1,5 @@
 using Images
-using Color
+using Colors
 using LightGraphs
 using Reactive, Interact
 
@@ -13,7 +13,7 @@ include("vis.jl")
 include("gradients.jl")
 
 
-# Run over a pair of images named e.g. "../input/color_1.jpg" and 
+# Run over a pair of images named e.g. "../input/color_1.jpg" and
 # "../input/depth_1.png". The results will be written to ../output.
 #
 # Example usage in julia REPL:
@@ -31,7 +31,7 @@ function seg(idx::Integer)
 
     imlab = lab_image("../input/color_$idx.jpg", row_range, col_range)
     dep = depth_image("../input/depth_$idx.png", row_range, col_range)
- 
+
     depgrad = depth_image_grad(dep)
     labgrad = color_image_grad(imlab)
 
@@ -47,7 +47,7 @@ function seg(idx::Integer)
     dep_means, depth_superpix = color_means(dep,   sp_labels, nsp)
 
     # Compute a regional adjacency graph from superpixels, then cut it
-    graph, edgewts, borders = 
+    graph, edgewts, borders =
     adjacency_graph(sp_labels, nsp, lab_means, dep_means, depth_weight=w)
     graph = cut_graph(graph, edgewts, t)
 
@@ -59,16 +59,16 @@ function seg(idx::Integer)
 
     # Make an image of colored segment patches
     seg_lab_means, color_segments = color_means(imlab, seg_labels, nsegments)
-    
+
     # Overlay segment boundaries on (a copy of) the input color image
     seg_img = segment_overlay(seg_labels, imlab, color_segments,
                               cluster_centroids(seg_labels, nsegments))
 
-    imwrite(convert(Image{Color.RGB}, imlab),          "../output/color_in_$idx.jpg")
+    imwrite(convert(Image{Colors.RGB}, imlab),          "../output/color_in_$idx.jpg")
     imwrite(grayim(dep),                               "../output/depth_in_$idx.jpg")
-    imwrite(convert(Image{Color.RGB}, seg_img),        "../output/overlay_$idx.jpg")
-    imwrite(convert(Image{Color.RGB}, color_segments), "../output/color_segments_$idx.jpg")
-    imwrite(convert(Image{Color.RGB}, color_superpix), "../output/color_superpix_$idx.jpg")
+    imwrite(convert(Image{Colors.RGB}, seg_img),        "../output/overlay_$idx.jpg")
+    imwrite(convert(Image{Colors.RGB}, color_segments), "../output/color_segments_$idx.jpg")
+    imwrite(convert(Image{Colors.RGB}, color_superpix), "../output/color_superpix_$idx.jpg")
     imwrite(grayim(depth_superpix),                    "../output/depth_superpix_$idx.jpg")
     imwrite(grayim(graph_edges),                       "../output/graph_edges_$idx.jpg")
 

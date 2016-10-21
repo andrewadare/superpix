@@ -38,7 +38,7 @@ function segment_borders(labels::AbstractArray, img::AbstractArray)
     j4 = [ 0, -1,  0,  1]
 
     borders = similar(img)
-    black = convert(eltype(img), Color.RGB(0,0,0))
+    black = convert(eltype(img), Colors.RGB(0,0,0))
 
     for i = 1:nr
         for j = 1:nc
@@ -66,7 +66,7 @@ function segment_borders(labels::AbstractArray, img::AbstractArray)
     borders
 end
 
-function segment_overlay(labels::AbstractArray, 
+function segment_overlay(labels::AbstractArray,
                          img::AbstractArray,
                          border_colors::AbstractArray,
                          centroids::AbstractArray)
@@ -77,8 +77,8 @@ function segment_overlay(labels::AbstractArray,
     j4 = [ 0, -1,  0,  1]
 
     newimg = copy(img)
-    black = convert(eltype(img), Color.RGB(0,0,0))
-    red   = convert(eltype(img), Color.RGB(1,0,0))
+    black = convert(eltype(img), Colors.RGB(0,0,0))
+    red   = convert(eltype(img), Colors.RGB(1,0,0))
 
     for i = 1:nr
         for j = 1:nc

@@ -1,4 +1,4 @@
-function update_distances!(img::AbstractArray, 
+function update_distances!(img::AbstractArray,
                            labels::AbstractArray,
                            centers::AbstractArray,
                            d::AbstractArray,
@@ -27,11 +27,11 @@ function update_distances!(img::AbstractArray,
 
         # Loop through clustering window
         for r in rows
-            for c in cols               
+            for c in cols
                 # Squared pixel-to-centroid Euclidean distance
                 sdiff = [r,c] - [i,j]
                 pixel_d2 = dot(sdiff, sdiff)
-    
+
                 # Squared color distance in LAB color space
                 # pc and cc are the pixel and centroid ColorValues
                 pc, cc = img[r,c], img[i,j]
@@ -63,8 +63,8 @@ function update_centroids!(labels::AbstractArray, centers::AbstractArray)
 
     for i = 1:nr
         for j = 1:nc
-            
-            # If pixel was not labeled during the distance update step, try to 
+
+            # If pixel was not labeled during the distance update step, try to
             # assign it an adjacent label.
             if labels[i,j] == 0
                 for k = 1:4
@@ -176,7 +176,7 @@ function slic(img::AbstractArray, k::Integer, m::Integer)
     newlabels, nlabels = slic(img, centers, k, m, niter=5)
 end
 
-function slic(img::AbstractArray, 
+function slic(img::AbstractArray,
               seeds::AbstractArray,
               k::Integer,
               m::Integer;
@@ -186,7 +186,7 @@ function slic(img::AbstractArray,
 
     # Cluster labels for each pixel
     labels = zeros(Int, nr, nc)
-    
+
     # Distances from pixels to cluster seeds, initialized to ∞
     d = typemax(Float64)*ones(Float64, nr, nc)
 
@@ -197,7 +197,7 @@ function slic(img::AbstractArray,
         update_distances!(img, labels, seeds, d, k, m)
         update_centroids!(labels, seeds)
     end
-    
+
     # Fix any disconnected pixels and merge small clusters to neighbors
     min_cluster_size = round(Int, 0.5*nr*nc/k)
     newlabels, nlabels = reconnect(labels, min_cluster_size)

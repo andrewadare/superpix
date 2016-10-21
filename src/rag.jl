@@ -1,11 +1,11 @@
-# Return a regional adjacency graph (of type Graph, as defined in 
+# Return a regional adjacency graph (of type Graph, as defined in
 # LightGraphs.jl). This is an undirected planar graph. The nodes correspond
 # to segment labels. Edges join adjacent nodes only.
 function adjacency_graph(labels::AbstractArray,
                          nlabels::Integer,
                          lab_means::Dict,
                          dep_means::Dict;
-                         depth_weight::FloatingPoint=0.5)
+                         depth_weight::AbstractFloat=0.5)
 
     @assert 0.0 <= depth_weight <= 1.0
 
@@ -29,8 +29,8 @@ function adjacency_graph(labels::AbstractArray,
                 !has_edge(g, labels[i,j], labels[ni, nj]) || continue
                 a, b = labels[i,j], labels[ni, nj]
                 ca, cb = lab_means[a], lab_means[b]
-                            
-                rgb = convert(Color.RGB, ca)
+
+                rgb = convert(Colors.RGB, ca)
 
                 add_edge!(g, a, b)
                 # Assign edge weights based on color and depth
@@ -77,23 +77,23 @@ function grad_weights(g::Graph, centroids::AbstractArray, grad_img::AbstractArra
     wts
 end
 
-function cut_graph(g::Graph, edgewts::AbstractArray, thresh::FloatingPoint)
+function cut_graph(g::Graph, edgewts::AbstractArray, thresh::AbstractFloat)
     g2 = Graph(nv(g))
     for e in edges(g)
         a, b = src(e), dst(e)
         wt = edgewts[a,b]
-        if wt < thresh 
+        if wt < thresh
             add_edge!(g2, e)
         end
     end
     g2
 end
 
-function cut_graph!(g::Graph, edgewts::AbstractArray, thresh::FloatingPoint)
+function cut_graph!(g::Graph, edgewts::AbstractArray, thresh::AbstractFloat)
     for e in edges(g)
         a, b = src(e), dst(e)
         wt = edgewts[a,b]
-        if wt > thresh 
+        if wt > thresh
             rem_edge!(g, e)
         end
     end

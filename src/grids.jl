@@ -37,9 +37,9 @@ function adjusted_grid(grid::AbstractArray, grad_mag::AbstractArray)
         i,j = grid[n,:]
         rows = max(1,i-1) : min(nr,i+1)
         cols = max(1,j-1) : min(nc,j+1)
-        window = sub(grad_mag, rows, cols)
+        window = view(grad_mag, rows, cols)
 
-        # Find pixel position in window with the smallest gradient.    
+        # Find pixel position in window with the smallest gradient.
         wi, wj = ind2sub(size(window), indmin(window))
 
         newgrid[n,:] = [rows[1] - 1 + wi, cols[1] - 1 + wj]

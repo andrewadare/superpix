@@ -1,7 +1,7 @@
 include("/Users/adare/repos/superpix/slic.jl")
 
 function unpack_drgb_array(pbuff::Array{UInt32, 1}, nrows::Int64, ncols::Int64)
-    
+
     pbuff_2d = reshape(pbuff, ncols, nrows)
 
     # Unpack UInt32s into LAB color and depth arrays.
@@ -37,7 +37,7 @@ function cut_graph!(g::Graph, edgewts::AbstractArray, thresh::FloatingPoint)
     for e in edges(g)
         a, b = src(e), dst(e)
         wt = edgewts[a,b]
-        if wt > thresh 
+        if wt > thresh
             rem_edge!(g, e)
         end
     end

@@ -1,7 +1,7 @@
 using Images
 
-depth_img = imread("kinect-depth.png")
-color_img = imread("kinect-color.png")
+depth_img = FileIO.load("kinect-depth.png")
+color_img = FileIO.load("kinect-color.png")
 
 # Relative neighbor indices
 i4 = [-1,  0,  1,  0]
@@ -19,7 +19,7 @@ rgb = color_img[rgb_x_range, rgb_y_range]
 empties = find(dep .< 0.001)
 for e in empties
     println(e, " ", dep[e])
-    
+
     i,j = ind2sub(size(dep), e)
 
     for k = 1:4

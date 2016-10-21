@@ -1,7 +1,7 @@
 module SuperPix
 
 using Images
-using Color
+using Colors
 using LightGraphs
 
 include("grids.jl")
@@ -31,5 +31,4 @@ export
     slic,
     graph_image,
     segment_borders
-
 end

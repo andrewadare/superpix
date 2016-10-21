@@ -16,13 +16,13 @@ function merged_superpixels(labels::AbstractArray, graph::Graph)
 
     label = 0
     for s in vertices(g)
-        vv = visited_vertices(g, DepthFirst(), s)           
+        vv = visited_vertices(g, DepthFirst(), s)
 
         if length(vv) > 2
             label += 1
             for v in vv
                 indices = find(labels .== v)
-                
+
                 for i in indices
                     if seglabels[i] == 0
                         seglabels[i] = label

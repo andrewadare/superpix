@@ -1,20 +1,32 @@
-function generalized_mean(A::AbstractArray)
-    t = eltype(A)
-    if t <: Union(Number, Images.ColorTypes.Gray, Images.ColorTypes.RGB)
-        return mean(A)
-    elseif t <: Images.ColorTypes.Lab
-        c = zeros(Float32, 3)
-        for pixel in A
-            c[1] += pixel.l
-            c[2] += pixel.a
-            c[3] += pixel.b
-        end
-        c /= length(A)
-        return Color.LAB{Float32}(c[1], c[2], c[3])
+function generalized_mean{T<:Images.ColorTypes.Lab, N}(A::AbstractArray{T, N})
+    c = zeros(Float32, 3)
+    for pixel in A
+        c[1] += pixel.l
+        c[2] += pixel.a
+        c[3] += pixel.b
     end
+    c /= length(A)
+    return Colors.Lab{Float32}(c[1], c[2], c[3])
+end
 
-    error("No implementation for type $t")
-    NaN
+# function generalized_mean{T<:Union(Number, Images.ColorTypes.Gray, Images.ColorTypes.Rgb)}(A::AbstractArray{T, N})
+function generalized_mean(A::AbstractArray)
+    # t = eltype(A)
+    # if t <: Union(Number, Images.ColorTypes.Gray, Images.ColorTypes.RGB)
+        return mean(A)
+    # elseif t <: Images.ColorTypes.Lab
+        # c = zeros(Float32, 3)
+        # for pixel in A
+        #     c[1] += pixel.l
+        #     c[2] += pixel.a
+        #     c[3] += pixel.b
+        # end
+        # c /= length(A)
+        # return Colors.Lab{Float32}(c[1], c[2], c[3])
+    # end
+
+    # error("No implementation for type $t")
+    # NaN
 end
 
 function color_means(img, labels, nlabels)
@@ -61,13 +73,13 @@ function color_moments(img, labels, nlabels)
 
         stdev = sqrt(var)
         superpx_mean_img[indices] = mu
-        superpx_std_img[indices] = Color.RGB(stdev[1], stdev[2], stdev[3])
+        superpx_std_img[indices] = Colors.RGB(stdev[1], stdev[2], stdev[3])
     end
     superpx_mean_img, superpx_std_img
 end
 
 
-# Assign cluster boundaries at pixels whose label differs from its neighbor 
+# Assign cluster boundaries at pixels whose label differs from its neighbor
 # below (i+1) or to the right (j+1).
 function cluster_centroids(labels::AbstractArray, nclusters::Integer)
     nr,nc = size(labels)
@@ -95,7 +107,7 @@ function cluster_centroids(labels::AbstractArray, nclusters::Integer)
         colmean = clamp(jsums[n]/npix[n], 1, nc)
         ctrs[n,:] = round(Int, [rowmean colmean])
     end
-    
+
     ctrs
 end
 
