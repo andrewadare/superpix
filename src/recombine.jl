@@ -1,5 +1,8 @@
 function merged_superpixels(labels::AbstractArray, graph::Graph)
     nr, nc = size(labels)
+
+    @assert nr > 0 && nc > 0 "nr, nc = $nr, $nc"
+
     seglabels = zeros(Int, nr, nc)
 
     g = Graph(nv(graph))
@@ -32,8 +35,17 @@ function merged_superpixels(labels::AbstractArray, graph::Graph)
         end
 
         for v in vv
-            for nv in neighbors(g, v)
-                rem_edge!(g, v, nv)
+            println("***** ", v)
+            v_neighbors = []
+            try
+                v_neighbors = neighbors(g, v)
+                for neighbor in v_neighbors
+                    # println("g.fadjlist[v], v, neighbor = $(g.fadjlist[v]), $v, $neighbor")
+                    # if g.fadjlist
+                    rem_edge!(g, v, neighbor)
+                end
+            catch
+                println("g.fadjlist[v], v, v_neighbors = $(g.fadjlist[v]), $v, $v_neighbors")
             end
         end
     end
