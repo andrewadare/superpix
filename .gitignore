@@ -10,3 +10,4 @@ imgs
 *.txt
 *.jpg
 .DS_Store
+.ipynb_checkpoints
